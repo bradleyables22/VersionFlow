@@ -1,0 +1,9 @@
+<Project>
+  <!-- Evaluated after project properties and SDK default items, so non-published projects are excluded. -->
+  <ItemGroup Condition="'$(IsPackable)' != 'false'">
+    <None Update="README.md" Pack="true" PackagePath="/" />
+    <None Update="LICENSE" Pack="true" PackagePath="/" />
+    <None Include="$(MSBuildThisFileDirectory)assets/VersionFlow-icon.png"
+          Pack="true" PackagePath="/VersionFlow-icon.png" Link="VersionFlow-icon.png" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,24 @@
+name: build
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - run: dotnet restore VersionFlow.slnx
+      - run: dotnet build VersionFlow.slnx -c Release --no-restore
+      - run: dotnet test VersionFlow.slnx -c Release --no-build --logger trx
+      - run: dotnet pack VersionFlow.slnx -c Release --no-build -o artifacts/packages
+      - name: Test packed Core with its bundled generator
+        env:
+          NUGET_PACKAGES: ${{ runner.temp }}/versionflow-package-consumer
+        run: |
+          dotnet restore tests/VersionFlow.PackageSmoke/VersionFlow.PackageSmoke.csproj --configfile tests/VersionFlow.PackageSmoke/NuGet.Config
+          dotnet run --project tests/VersionFlow.PackageSmoke/VersionFlow.PackageSmoke.csproj -c Release --no-restore
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-packages
+          path: artifacts/packages/*.nupkg
