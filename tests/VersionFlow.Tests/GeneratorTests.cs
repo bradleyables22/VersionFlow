@@ -117,6 +117,23 @@ public sealed class GeneratorTests
         Assert.Equal("Dispose", method.Operation);
         Assert.Equal(3, method.Version);
     }
+    [Fact]
+    public void Non_generic_cqrs_wrapper_generates_inherited_handler_method()
+    {
+        var result = Generate("""
+            public sealed record GetPrice(int Quantity);
+            public interface IGetPriceHandler : global::VersionFlow.Extensions.Cqrs.ICqrsHandler<GetPrice, decimal> { }
+            [Versioned(typeof(IGetPriceHandler), 1, Key = "Pricing")]
+            public sealed class GetPriceV1 : IGetPriceHandler
+            {
+                public System.Threading.Tasks.Task<decimal> HandleAsync(GetPrice request, System.Threading.CancellationToken ct = default)
+                    => System.Threading.Tasks.Task.FromResult(request.Quantity * 10m);
+            }
+            """);
+        Assert.Empty(result.Run.Diagnostics);
+        Assert.Empty(result.Compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+        Assert.Contains("HandleAsync", result.Run.GeneratedTrees.Single().ToString());
+    }
     [Fact] public void Independent_methods_generate_compilable_typed_calls()
     {
         var result = Generate("""
@@ -132,5 +149,6 @@ public sealed class GeneratorTests
         Assert.Empty(result.Compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
     }
 }
+
 
 

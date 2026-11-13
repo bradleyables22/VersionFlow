@@ -1,3 +1,5 @@
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -21,16 +23,83 @@ public static class VersionFlowServiceCollectionExtensions
             services.AddSingleton(new FluentOperationDeclaration(operationKey));
         return services;
     }
-    public static IServiceCollection AddVersionFlow(this IServiceCollection services, IConfiguration section)
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static IServiceCollection AddVersionFlow(this IServiceCollection services, IConfiguration section,
+        bool autoRegister = true, Assembly? assembly = null)
     {
-        services.AddVersionFlowOptions().Bind(section); return services;
+        ArgumentNullException.ThrowIfNull(section);
+        AddRuntimeOptions(services).Bind(section);
+        if (autoRegister) AutoRegister(services, assembly ?? Assembly.GetCallingAssembly());
+        return services;
     }
-    public static IServiceCollection AddVersionFlow(this IServiceCollection services, Action<VersionFlowOptions> configure)
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static IServiceCollection AddVersionFlow(this IServiceCollection services, Action<VersionFlowOptions> configure,
+        bool autoRegister = true, Assembly? assembly = null)
     {
-        services.AddVersionFlowOptions().Configure(configure); return services;
+        ArgumentNullException.ThrowIfNull(configure);
+        AddRuntimeOptions(services).Configure(configure);
+        if (autoRegister) AutoRegister(services, assembly ?? Assembly.GetCallingAssembly());
+        return services;
     }
-    public static OptionsBuilder<VersionFlowOptions> AddVersionFlowOptions(this IServiceCollection services)
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static IServiceCollection AddVersionFlow(this IServiceCollection services,
+        bool autoRegister = true, Assembly? assembly = null)
     {
+        AddRuntimeOptions(services);
+        if (autoRegister) AutoRegister(services, assembly ?? Assembly.GetCallingAssembly());
+        return services;
+    }
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static OptionsBuilder<VersionFlowOptions> AddVersionFlowOptions(this IServiceCollection services,
+        bool autoRegister = true, Assembly? assembly = null)
+    {
+        var options = AddRuntimeOptions(services);
+        if (autoRegister) AutoRegister(services, assembly ?? Assembly.GetCallingAssembly());
+        return options;
+    }
+    // Preserve the original method signatures for already-compiled consumers.
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static IServiceCollection AddVersionFlow(this IServiceCollection services, IConfiguration section) =>
+        AddVersionFlow(services, section, autoRegister: true, assembly: Assembly.GetCallingAssembly());
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static IServiceCollection AddVersionFlow(this IServiceCollection services, Action<VersionFlowOptions> configure) =>
+        AddVersionFlow(services, configure, autoRegister: true, assembly: Assembly.GetCallingAssembly());
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static OptionsBuilder<VersionFlowOptions> AddVersionFlowOptions(this IServiceCollection services) =>
+        AddVersionFlowOptions(services, autoRegister: true, assembly: Assembly.GetCallingAssembly());
+    private static void AutoRegister(IServiceCollection services, Assembly assembly)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        // Explicit catalogs preserve the existing advanced setup's chosen scope.
+        var discovery = services.FirstOrDefault(d => d.ServiceType == typeof(AutomaticCatalogRegistration))?.ImplementationInstance as AutomaticCatalogRegistration;
+        if (discovery is not null || !services.Any(d => d.ServiceType == typeof(IVersionFlowCatalog)))
+        {
+            var metadata = assembly.GetCustomAttribute<GeneratedVersionFlowCatalogAttribute>();
+            if (metadata is not null && (discovery is null || !discovery.CatalogTypes.Contains(metadata.CatalogType)))
+            {
+                var root = Activator.CreateInstance(metadata.CatalogType) as IVersionFlowCatalog
+                    ?? throw new VersionFlowRegistrationException($"Invalid generated catalog for '{assembly.FullName}'.");
+                if (discovery is null) { discovery = new AutomaticCatalogRegistration(); services.AddSingleton(discovery); }
+                void Link(IVersionFlowCatalog catalog)
+                {
+                    if (!discovery.CatalogTypes.Add(catalog.GetType())) return;
+                    services.AddSingleton(catalog);
+                    foreach (var referenced in catalog.ReferencedCatalogs) Link(referenced);
+                }
+                Link(root);
+            }
+        }
+        services.AddVersionFlowDispatchers();
+    }
+    private sealed class AutomaticCatalogRegistration
+    {
+        public HashSet<Type> CatalogTypes { get; } = [];
+    }
+    private static OptionsBuilder<VersionFlowOptions> AddRuntimeOptions(IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
         services.AddLogging();
         services.TryAddSingleton<VersionFlowCatalog>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<VersionFlowOptions>, VersionFlowOptionsValidator>());
@@ -43,7 +112,7 @@ public static class VersionFlowServiceCollectionExtensions
     }
     public static IServiceCollection AddVersionFlowDispatchers(this IServiceCollection services)
     {
-        services.AddVersionFlowOptions();
+        AddRuntimeOptions(services);
         var catalogs = services.Where(d => d.ServiceType == typeof(IVersionFlowCatalog)).Select(d => d.ImplementationInstance as IVersionFlowCatalog
             ?? throw new VersionFlowRegistrationException("Register catalogs using AddVersionFlowCatalog before AddVersionFlowDispatchers.")).ToArray();
         var catalog = new VersionFlowCatalog(catalogs, []);
@@ -102,4 +171,7 @@ public static class VersionFlowServiceCollectionExtensions
         public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
     }
 }
+
+
+
 

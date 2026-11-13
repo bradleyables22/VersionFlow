@@ -1,20 +1,20 @@
 # VersionFlow.Extensions.DI
 
-Version **1.0.0** · .NET 10+ · MIT
+**1.0.1 · .NET 10+ · MIT**
 
-Attribute-based registration for Microsoft dependency injection. This package works independently of VersionFlow.Core and the CQRS extension.
+Attribute-based registration for Microsoft dependency injection, independent of Core and CQRS.
 
 ```xml
-<PackageReference Include="VersionFlow.Extensions.DI" Version="1.0.0" />
+<PackageReference Include="VersionFlow.Extensions.DI" Version="1.0.1" />
 ```
 
-## Concrete and interface registrations
+## Register services
 
 ```csharp
 using Microsoft.Extensions.DependencyInjection;
 using VersionFlow.Extensions.DI;
 
-[Service] // Concrete type only; scoped by default
+[Service] // Concrete only, scoped by default
 public sealed class MyHandler { }
 
 [Service(typeof(IClock), ServiceLifetime.Singleton)]
@@ -26,55 +26,64 @@ public sealed class Writer : IWriter, IExporter { }
 services.AddAttributedServices();
 ```
 
-`[Service]` always registers the concrete class. It does not automatically bind interfaces. Explicit interface/base-type bindings must be assignable from the implementation. The native `ServiceLifetime` enum supports Scoped, Singleton, and Transient. Each binding owns its instance: scoped bindings cache per scope, singleton bindings cache per provider, and transient resolutions create new instances. Interface and concrete bindings are separate, including for scoped and singleton services.
+Interfaces in these examples are your application contracts. Every marked class is registered by concrete type; optional interface/base-type bindings must be assignable from it. All native ServiceLifetime values are supported: Scoped, Singleton, and Transient.
 
-To opt into interface discovery:
+To opt into all implemented interfaces:
 
 ```csharp
 [Service(ServiceLifetime.Scoped, AsImplementedInterfaces = true)]
 public sealed class MyService : IMyService, IAnotherService { }
 ```
 
-Discovery includes inherited and closed generic interfaces, excludes IDisposable/IAsyncDisposable, and deduplicates explicit bindings.
+Discovery includes inherited and closed generic interfaces, excludes IDisposable/IAsyncDisposable, and deduplicates explicit bindings. It defaults to false. Attributes are not inherited by subclasses.
 
-## Select assemblies
+## Choose assemblies
+
+Parameterless AddAttributedServices scans the immediate calling assembly. For libraries or shared startup helpers:
 
 ```csharp
-services.AddAttributedServices(typeof(MyHandler).Assembly);
+services.AddAttributedServices(typeof(MyHandler).Assembly, typeof(OtherHandler).Assembly);
 services.AddAttributedServicesFromAssemblyContaining<MyHandler>();
 ```
 
-The parameterless overload scans the immediate calling assembly. Prefer explicit assemblies inside shared startup helpers. Only marked classes are registered, and attributes are not inherited.
+Repeated scans are idempotent. Identical service-type/implementation-type/lifetime registrations are reused. Conflicts are rejected before appending registrations; existing services are never replaced silently. Deliberate multiple implementations of one service contract require native DI registration. Scanning never invokes service constructors. Constructor dependencies must also be registered.
 
-Repeated scans are idempotent. Existing identical service-type/implementation-type/lifetime registrations are reused; conflicting registrations are rejected before the collection is changed. Competing implementations for one contract require deliberate native DI registration instead. Constructors are not invoked during scanning.
+## Binding identity and disposal
 
-## Integration and limitations
-
-For VersionFlow class families, use `[Service]` without binding the shared versioned interface: VersionFlow registers that interface's facade separately. CQRS interfaces can be explicitly bound like any other interface; this package does not reference or require CQRS.
-
-Types must be closed concrete classes with public constructors. Register open generics through native DI. Scanning uses reflection and carries trimming warnings. Assembly loader failures are reported rather than silently dropping registrations. Native DI scope validation applies. Every binding is an implementation-type registration; there are no forwarding factories that would cause DI to track the same disposable instance twice. Each instance created by these registrations is disposed once by its owning scope/provider. Use CreateAsyncScope and await using for asynchronous-only disposables. If a class supports both IDisposable and IAsyncDisposable, asynchronous scope/provider disposal calls DisposeAsync, while synchronous disposal calls Dispose.
-
-## Binding identity and ownership
-
-```csharp
-[Service(typeof(IWorker))]
-public sealed class Worker : IWorker, IDisposable
-{
-    public void Dispose() { /* release this instance's resources */ }
-}
-```
-
-This registers the equivalent of:
+`[Service(typeof(IWorker))]` on Worker is equivalent to:
 
 ```csharp
 services.AddScoped<Worker>();
 services.AddScoped<IWorker, Worker>();
 ```
 
-Resolving IWorker twice within one scope returns the same instance. Resolving Worker separately creates a different scoped instance. Resolving only IWorker does not create the concrete binding's instance. Both bindings are constructed lazily and independently, and each created instance is disposed exactly once. The same per-binding ownership rule applies to singleton services; transient resolutions always create separate instances.
+Worker and IWorker have separate scoped instances. Resolving IWorker repeatedly in one scope returns its same instance; singleton bindings cache per provider and transient resolutions create new instances. Only resolved bindings construct objects. For shared state, inject a separately registered shared dependency.
 
-If two bindings need shared mutable state, inject a separately registered scoped/singleton state service into both. `[Service]` alone continues to register only the concrete type. Arbitrary factory aliases or manually shared disposable objects added outside this scanner still follow the application's own DI ownership choices.
-## License
+Every binding uses an implementation-type registration, not a forwarding factory, so each created disposable instance has one DI owner and is disposed once. Async-only implementations require CreateAsyncScope/await using. Async disposal prefers DisposeAsync when both disposal interfaces are implemented. Manually added factories/shared objects remain subject to your own ownership choices.
 
-MIT. Copyright (c) 2026 Bradley Ables. The full license is included as `LICENSE`.
+## With VersionFlow.Core
 
+Annotate versioned classes with concrete-only Service plus Versioned:
+
+```csharp
+[Service]
+[Versioned(typeof(IPricing), 1, Key = "Pricing")]
+public sealed class PricingV1 : IPricing { /* implementation */ }
+```
+
+Install Core and import VersionFlow for Versioned. Startup in 1.0.1:
+
+```csharp
+builder.Services.AddAttributedServices();
+builder.Services.AddVersionFlow(builder.Configuration.GetSection("VersionFlow"));
+```
+
+AddVersionFlow automatically discovers generated catalogs and registers scoped interface dispatchers. Do not bind IPricing yourself using Service interface bindings; it belongs to the dispatcher. Include implementation assemblies in the DI scan for multi-project applications. Core's automatic catalog discovery does not register concrete types for you.
+
+For plain CQRS handlers, explicit closed generic interface binding is valid. For versioned CQRS, define a non-generic wrapper inheriting ICqrsHandler<TRequest, TResult>, use it as the Versioned contract, and keep Service concrete-only. See the Core and CQRS READMEs for full examples.
+
+## Limitations
+
+Types must be closed concrete classes with public constructors. Register open generics through native DI. Scanning uses reflection and carries trimming warnings; loader failures are reported rather than silently dropping services. Enable native DI scope validation. This package does not provide a container or runtime proxy system.
+
+MIT. Copyright (c) 2026 Bradley Ables. Full license included as LICENSE.

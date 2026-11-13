@@ -1,16 +1,13 @@
 # VersionFlow.Tests
 
-.NET 10 xUnit tests for VersionFlow 1.0.0. This project is not published as a NuGet package.
+.NET 10 xUnit tests for VersionFlow **1.0.1**. This project is not published.
 
-Run from the solution root:
-
-```powershell
+```sh
 dotnet test VersionFlow.slnx -c Release
 ```
 
-Coverage includes selection precedence, generated facades, DI lifetimes, once-only synchronous/asynchronous disposal across all lifetimes and interface bindings, options binding and reload, immutable fluent callbacks, compiler diagnostics, cross-assembly catalogs, independent CQRS contracts, and explicit/automatic interface bindings.
+Tests cover automatic local/referenced catalog discovery, all setup styles, explicit manual opt-out, interface conflict detection, typed dispatch, selection precedence, options/reload validation, immutable fluent builders, and unknown-operation rejection. Other tests verify native DI lifetime/disposal behavior, CQRS contracts, interface binding, and Roslyn generator output/diagnostics.
 
-Generator tests compile in-memory C# with Roslyn. Integration tests link the separate `VersionFlow.TestServices` fixture assembly. The generator project is referenced both as an analyzer for test fixtures and as a normal reference for direct generator-driver tests.
+VersionFlow.TestServices is the separate assembly fixture for catalog linking. Generator-driver tests reference the compiler project directly; application-style test fixtures consume it as an analyzer. The separate PackageSmoke projects are intentionally outside the solution and test actual packed artifacts in CI after packing.
 
-The repository's root MIT license applies.
-
+The root MIT license applies.

@@ -1,47 +1,78 @@
 # VersionFlow.Extensions.Cqrs
 
-Version **1.0.0** · .NET 10+ · MIT
+**1.0.1 · .NET 10+ · MIT**
 
-A dependency-free pair of typed CQRS handler contracts. There is no registry, mediator, request hierarchy, scanner, or DI dependency. Call handlers directly and use command/query naming to express whether an operation changes state or only reads it.
+A dependency-free pair of direct-call handler contracts. No registry, mediator, scanner, or DI dependency is required. Commands and queries use the same contracts; use names and application design to distinguish state changes from reads.
 
 ```xml
-<PackageReference Include="VersionFlow.Extensions.Cqrs" Version="1.0.0" />
+<PackageReference Include="VersionFlow.Extensions.Cqrs" Version="1.0.1" />
 ```
 
-## An operation with a result
+## Plain CQRS
 
 ```csharp
 using VersionFlow.Extensions.Cqrs;
 
-public sealed record CalculateTotal(int Quantity);
-
-public sealed class CalculateTotalHandler : ICqrsHandler<CalculateTotal, decimal>
+public sealed record GetPrice(int Quantity);
+public sealed class GetPriceHandler : ICqrsHandler<GetPrice, decimal>
 {
-    public Task<decimal> HandleAsync(CalculateTotal request, CancellationToken cancellationToken = default)
+    public Task<decimal> HandleAsync(GetPrice request, CancellationToken ct = default)
     {
-        cancellationToken.ThrowIfCancellationRequested();
+        ct.ThrowIfCancellationRequested();
         return Task.FromResult(request.Quantity * 10m);
     }
 }
-
-var handler = new CalculateTotalHandler();
-var total = await handler.HandleAsync(new CalculateTotal(3));
 ```
 
-Operations without a result implement `ICqrsHandler<TRequest>` and return `Task`. Result-bearing operations implement `ICqrsHandler<TRequest, TResponse>` and return `Task<TResponse>`. Both accept an optional cancellation token. Validation, authorization, transactions, cancellation handling, and exception behavior belong to application code.
-
-## Optional dependency injection
-
-Register with native Microsoft DI in the consuming application:
+Call the concrete handler directly or register it with ordinary DI:
 
 ```csharp
-services.AddScoped<ICqrsHandler<CalculateTotal, decimal>, CalculateTotalHandler>();
+services.AddScoped<ICqrsHandler<GetPrice, decimal>, GetPriceHandler>();
 ```
 
-Or install the separate `VersionFlow.Extensions.DI` package and annotate the handler with `[Service(typeof(ICqrsHandler<CalculateTotal, decimal>))]`, then call `services.AddAttributedServices()`. Use `[Service]` alone if only concrete injection is wanted. There is no CQRS-specific registration attribute or method.
+With the separate DI extension, use `[Service(typeof(ICqrsHandler<GetPrice, decimal>))]` and AddAttributedServices instead. `[Service]` alone registers only the concrete class. Closed generic interfaces are valid for ordinary DI binding.
 
-A handler may implement multiple distinct operation interfaces. The request type is contravariant in C#, but native DI resolves the exact registered service type rather than automatically adding variance-based bindings.
+ICqrsHandler<TRequest> returns Task; ICqrsHandler<TRequest, TResponse> returns Task<TResponse>. Both accept an optional cancellation token. Validation, transactions, authorization, cancellation handling, and exception behavior belong to application code. Native DI requires the exact requested service registration; C# request contravariance does not create extra bindings.
 
-## License
+## Versioned CQRS with Core
 
-MIT. Copyright (c) 2026 Bradley Ables. The full license is included as `LICENSE`.
+Install VersionFlow.Core 1.0.1. Its generator requires a non-generic contract, so wrap the CQRS interface:
+
+```csharp
+using VersionFlow;
+using VersionFlow.Extensions.Cqrs;
+using VersionFlow.Extensions.DI;
+
+public interface IGetPriceHandler : ICqrsHandler<GetPrice, decimal> { }
+
+[Service]
+[Versioned(typeof(IGetPriceHandler), 1, Key = "Pricing")]
+public sealed class GetPriceV1 : IGetPriceHandler
+{
+    public Task<decimal> HandleAsync(GetPrice request, CancellationToken ct = default)
+        => Task.FromResult(request.Quantity * 10m);
+}
+
+[Service]
+[Versioned(typeof(IGetPriceHandler), 2, Key = "Pricing")]
+public sealed class GetPriceV2 : IGetPriceHandler
+{
+    public Task<decimal> HandleAsync(GetPrice request, CancellationToken ct = default)
+        => Task.FromResult(request.Quantity * 9m);
+}
+```
+
+The Service attribute above comes from the optional VersionFlow.Extensions.DI package. Startup for implementations in the application assembly:
+
+```csharp
+builder.Services.AddAttributedServices();
+builder.Services.AddVersionFlow(options => options.Classes["Pricing"] = "2");
+```
+
+Inject IGetPriceHandler and call HandleAsync normally. Core automatically links generated catalogs and registers the routing interface. Configuration can also come from `AddVersionFlow(builder.Configuration.GetSection("VersionFlow"))`. No catalog or dispatcher call is needed for normal setup.
+
+Do not pass typeof(ICqrsHandler<GetPrice, decimal>) directly to Versioned. Do not use Service interface binding/automatic discovery on the versioned implementations: the dispatcher owns IGetPriceHandler. The inherited HandleAsync method is supported and its configuration key is Pricing.HandleAsync. Directly injecting GetPriceV1 deliberately bypasses routing.
+
+For a multi-project application, reference Core in startup and declaring projects, rebuild them for 1.0.1, and pass the implementation assemblies to AddAttributedServices. Referenced generated catalogs are discovered automatically; DI still needs concrete registrations and constructor dependencies. Core's README covers advanced manual setup and opt-out.
+
+MIT. Copyright (c) 2026 Bradley Ables. Full license included as LICENSE.

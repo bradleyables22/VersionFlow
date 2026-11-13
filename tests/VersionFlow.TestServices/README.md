@@ -1,13 +1,11 @@
 # VersionFlow.TestServices
 
-.NET 10 integration-test fixture for VersionFlow 1.0.0. This project is not published as a NuGet package.
+.NET 10 integration-test fixture for VersionFlow **1.0.1**. Not published as a NuGet package.
 
-The assembly declares versioned `IExternal` implementations and generates its own catalog. `VersionFlow.Tests` links that catalog to verify cross-assembly routing, concrete DI resolution, and scoped disposal.
+The assembly declares IExternal versions and generates catalog metadata. Tests verify automatic discovery through referenced catalogs, explicitly selected discovery roots, the manual catalog API, and scope disposal.
 
-Build and exercise it from the solution root:
-
-```powershell
+```sh
 dotnet test VersionFlow.slnx -c Release
 ```
 
-The repository's root MIT license applies.
+The root MIT license applies.

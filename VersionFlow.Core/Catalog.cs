@@ -6,6 +6,7 @@ namespace VersionFlow;
 public interface IVersionFlowCatalog
 {
     IEnumerable<VersionFlowContractDescriptor> Contracts { get; }
+    IEnumerable<IVersionFlowCatalog> ReferencedCatalogs => [];
 }
 public sealed class VersionFlowContractDescriptor
 {
@@ -56,3 +57,4 @@ public sealed class VersionFlowDispatcherContext(IServiceProvider provider, Vers
         return provider.GetService<T>() ?? throw new VersionFlowRegistrationException($"Selected implementation '{typeof(T)}' is not registered in DI.");
     }
 }
+

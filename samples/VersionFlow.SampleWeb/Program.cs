@@ -1,16 +1,13 @@
 using VersionFlow.Extensions.DI;
 using VersionFlow.Extensions.Cqrs;
 using VersionFlow;
-using VersionFlow.Generated.Assembly_VersionFlow_SampleWeb;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddAttributedServices();
 
-builder.Services.AddVersionFlowCatalog<GeneratedCatalog>();
 builder.Services.AddVersionFlowOperation("Orders.Process");
 builder.Services.AddVersionFlow(builder.Configuration.GetSection("VersionFlow"));
-builder.Services.AddVersionFlowDispatchers();
 var app = builder.Build();
 app.MapGet("/", (IPricingService pricing, IPricingOperations operations) => new
 {
@@ -67,5 +64,6 @@ public sealed class CalculatePriceHandler(IPricingService pricing) : ICqrsHandle
         return Task.FromResult(pricing.Calculate(request.Quantity));
     }
 }
+
 
 

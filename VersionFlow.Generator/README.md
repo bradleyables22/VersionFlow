@@ -1,28 +1,20 @@
 # VersionFlow.Generator
 
-Version **1.0.0** · Roslyn incremental source generator · MIT
+**1.0.1 · compiler component · MIT**
 
-Generates typed dispatchers and immutable catalog metadata for VersionFlow's service and method attributes. Dispatch uses direct typed calls and existing DI registrations, without reflection-based invocation.
-
-## Install
-
-In every project declaring versioned implementations:
+This is a development project, not a separately published package. Its DLL is bundled in VersionFlow.Core under analyzers/dotnet/cs. Applications install only:
 
 ```xml
-<PackageReference Include="VersionFlow.Core" Version="1.0.0" />
+<PackageReference Include="VersionFlow.Core" Version="1.0.1" />
 ```
 
-When referencing the generator project from source, use `OutputItemType="Analyzer" ReferenceOutputAssembly="false"` on the `ProjectReference`.
+## What it generates
 
-The analyzer targets .NET Standard 2.0 for compiler compatibility and uses Roslyn 4.14 APIs. VersionFlow applications target .NET 10 or later. The Core package contains the generator DLL under `analyzers/dotnet/cs`, not as an application runtime dependency. This generator project is kept separate for compiler development and tests, but is not separately published.
+The incremental generator reads Versioned attributes and produces typed interface dispatchers, a catalog of implementations/method versions, assembly metadata identifying that catalog, and typed links to referenced generated catalogs.
 
-## Usage
+With concrete implementations registered in DI, `services.AddVersionFlow(configurationSection)` discovers the catalog graph and registers scoped interface dispatchers automatically. Applications do not need to name generated classes or call AddVersionFlowDispatchers. No service implementations are constructed during catalog discovery.
 
 ```csharp
-using VersionFlow;
-
-public interface IMessage { string Read(); }
-
 [Versioned(typeof(IMessage), 1, Key = "Message")]
 public sealed class MessageV1 : IMessage
 {
@@ -30,18 +22,19 @@ public sealed class MessageV1 : IMessage
 }
 ```
 
-For an assembly named `MyApp`, link its generated catalog during startup:
+For independent methods, use Versioned(typeof(IContract)) on the host and Versioned(operationName, version) on its methods. Generated calls support inherited ordinary interface methods, explicit interface implementations, nullable references, void, Task, and ValueTask returns. Attributes do not rewrite method bodies or intercept concrete calls.
 
-```csharp
-services.AddScoped<MessageV1>();
-services.AddVersionFlowCatalog<VersionFlow.Generated.Assembly_MyApp.GeneratedCatalog>();
-services.AddVersionFlowOptions();
-services.AddVersionFlowDispatchers();
-```
+## Development and multiple assemblies
 
-Assembly-name characters other than letters and digits are replaced with underscores in the generated namespace. Link each referenced declaring assembly's catalog separately. There is no runtime assembly scanning or automatic concrete service registration. Use ordinary DI or the optional DI attribute extension for implementation registrations.
+The generator targets netstandard2.0 for compiler hosting and uses Roslyn 4.14 APIs. Runtime applications target .NET 10+. Source-tree consumers reference this project as an analyzer with OutputItemType="Analyzer" and ReferenceOutputAssembly="false"; package consumers get it from Core automatically.
 
-Independent method hosts use `[Versioned(typeof(IContract))]` on the class and `[Versioned("MethodName", version)]` on its methods. Generated calls support inherited ordinary interface methods, explicit interface implementations, nullable references, void, Task, and ValueTask return values.
+Each declaring assembly exposes a GeneratedCatalog under VersionFlow.Generated.Assembly_<sanitized assembly name>. Non-alphanumeric assembly-name characters become underscores. Avoid names that collide after sanitizing. Referenced generated catalogs are linked using compile-time symbols, and runtime discovery deduplicates their types. Rebuild startup and declaring projects against 1.0.1 to emit the new metadata. Dynamic plugins and arbitrary loaded assemblies are not scanned.
+
+AddVersionFlow starts from the calling assembly; shared helpers can specify its assembly argument. Explicit catalog APIs remain for advanced/manual integrations with autoRegister:false. Native AOT is not certified.
+
+## CQRS and generics
+
+The Versioned contract must be non-generic, even if generic arguments are closed. Define `public interface IGetPriceHandler : ICqrsHandler<GetPrice, decimal> { }` and use Versioned(typeof(IGetPriceHandler), 1). The inherited HandleAsync method is supported. Passing typeof(ICqrsHandler<GetPrice, decimal>) directly is unsupported.
 
 ## Diagnostics
 
@@ -58,13 +51,6 @@ Independent method hosts use `[Versioned(typeof(IContract))]` on the class and `
 | VF009 | Unsupported interface member or pointer signature |
 | VF010 | Conflicting versioning models or misplaced method annotation |
 | VF011 | Inaccessible or non-instantiable implementation |
-| VF012 | Wrong Versioned constructor for the target, or Key specified on a method |
+| VF012 | Wrong Versioned constructor for its target, or Key on a method |
 
-Generic contracts/implementation types, properties/indexers/events, default/static interface members, and overload-based operation routing are unsupported. Attributes do not intercept direct calls or rewrite method bodies. Output is deterministic and nullable-aware.
-
-## License
-
-MIT. Copyright (c) 2026 Bradley Ables. The full license is included as `LICENSE`.
-
-
-
+MIT. Copyright (c) 2026 Bradley Ables. Full license included as LICENSE.

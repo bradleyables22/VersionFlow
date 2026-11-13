@@ -1,10 +1,12 @@
 # VersionFlow.PackageSmoke
 
-A package-only executable that verifies the actual packed Core artifact, including its bundled generator. It is intentionally outside the solution: restore it only after packing.
+Package-consumer executable for **1.0.1**, intentionally outside the solution so ordinary restore does not require a previously packed release.
 
-CI runs this check automatically after packing, using ordinary dotnet commands, an isolated package cache, and a clean checkout. NuGet.Config restricts VersionFlow packages to the local artifact feed so a published package cannot mask a broken local artifact.
+This project and its PackageSmoke.Library fixture reference only packed Core, never runtime/generator source projects. The consumer registers concrete implementations and calls AddVersionFlow without naming catalogs or registering dispatchers. It verifies automatic discovery in both projects, typed routing, method precedence, explicit overrides, fluent callbacks, and rejection of unknown names.
 
-To run the same check manually from the repository root:
+CI packs first, then restores/runs this project using a fresh cache and exclusive local VersionFlow source mapping. No PowerShell scripts are required.
+
+From the repository root:
 
 ```sh
 dotnet pack VersionFlow.slnx -c Release -o artifacts/packages
@@ -12,4 +14,4 @@ dotnet restore tests/VersionFlow.PackageSmoke/VersionFlow.PackageSmoke.csproj --
 dotnet run --project tests/VersionFlow.PackageSmoke/VersionFlow.PackageSmoke.csproj -c Release --no-restore
 ```
 
-Use an empty NUGET_PACKAGES directory when manually checking a rebuilt package with the same version. The root MIT license applies.
+When manually retesting a rebuilt package with the same version, use an empty NUGET_PACKAGES directory. The root MIT license applies.

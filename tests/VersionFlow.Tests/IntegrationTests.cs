@@ -90,9 +90,10 @@ public sealed class IntegrationTests
     }
     [Fact] public void Unknown_contract_and_duplicate_linked_catalogs_fail_clearly()
     {
-        var services = new ServiceCollection(); services.AddVersionFlowOptions();
+        var services = new ServiceCollection(); services.AddVersionFlowOptions(autoRegister: false);
         using var provider = services.BuildServiceProvider(); using var scope = provider.CreateScope();
         Assert.Throws<VersionFlowRegistrationException>(() => scope.ServiceProvider.GetRequiredService<IVersionFlow>().For<IExternal>());
         Assert.Throws<VersionFlowConfigurationException>(() => new VersionFlowCatalog([new Generated.Assembly_VersionFlow_TestServices.GeneratedCatalog(), new Generated.Assembly_VersionFlow_TestServices.GeneratedCatalog()], []));
     }
 }
+
