@@ -8,6 +8,101 @@ public sealed class RailwayTests
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
+    public async Task Branches_choose_one_path_and_return_its_result(bool condition)
+    {
+        var expected = RailResult<string>.Passed("selected");
+        var checks = 0;
+        var calls = 0;
+        RailResult<string> Selected(int value)
+        {
+            Assert.Equal(42, value);
+            calls++;
+            return expected;
+        }
+        RailResult<string> Unselected(int _) => throw new Exception("Wrong path");
+        var start = RailResult<int>.Passed(42);
+        var result = start.Branch<string>(n => { checks++; return condition; },
+            condition ? Selected : Unselected, condition ? Unselected : Selected);
+        Assert.Same(expected, result);
+        Assert.Equal("selected!", result.Select(s => s + "!").Value);
+
+        using var cts = new CancellationTokenSource();
+        async Task<RailResult<string>> SelectedAsync(int value, CancellationToken ct)
+        {
+            await Task.Yield();
+            Assert.Equal(cts.Token, ct);
+            return Selected(value);
+        }
+        Task<RailResult<string>> UnselectedAsync(int _, CancellationToken ct) => throw new Exception("Wrong path");
+        Assert.Same(expected, await start.BranchAsync<string>(n => { checks++; return condition; },
+            condition ? SelectedAsync : UnselectedAsync,
+            condition ? UnselectedAsync : SelectedAsync, cts.Token));
+        Assert.Equal(2, checks);
+        Assert.Equal(2, calls);
+    }
+
+    [Fact]
+    public async Task Branches_preserve_failures_and_skip_callbacks()
+    {
+        var failed = RailResult<int>.Failed(new[] { new RailError("first"), new RailError("second") });
+        Assert.Equal(failed.Errors, failed.Branch<string>(_ => throw new Exception(),
+            _ => throw new Exception(), _ => throw new Exception()).Errors);
+        Assert.Equal(failed.Errors, (await failed.BranchAsync<string>(_ => throw new Exception(),
+            (_, _) => throw new Exception(), (_, _) => throw new Exception())).Errors);
+        var selected = RailResult<string>.Failed("branch failure");
+        var branched = RailResult<int>.Passed(1).Branch(_ => true, _ => selected, _ => throw new Exception());
+        Assert.Same(selected, branched);
+        Assert.Equal(selected.Errors, branched.Then<string>(_ => throw new Exception()).Errors);
+        Assert.Same(selected, await RailResult<int>.Passed(1).BranchAsync(_ => false,
+            (_, _) => throw new Exception(), (_, _) => Task.FromResult(selected)));
+    }
+
+    [Fact]
+    public async Task Branches_capture_exceptions_and_null_results_but_propagate_cancellation()
+    {
+        var start = RailResult<int>.Passed(1);
+        var exception = new InvalidOperationException("broken");
+        Assert.Same(exception, start.Branch<int>(_ => throw exception, n => RailResult<int>.Passed(n),
+            n => RailResult<int>.Passed(n)).Errors[0].Exception);
+        Assert.Same(exception, start.Branch<int>(_ => true, _ => throw exception,
+            n => RailResult<int>.Passed(n)).Errors[0].Exception);
+        Assert.True(start.Branch<int>(_ => false, n => RailResult<int>.Passed(n), _ => null!).IsFailed);
+        Assert.Same(exception, (await start.BranchAsync<int>(_ => throw exception,
+            (_, _) => throw new Exception(), (_, _) => throw new Exception())).Errors[0].Exception);
+        Assert.Same(exception, (await start.BranchAsync<int>(_ => false,
+            (_, _) => throw new Exception(), async (_, _) => { await Task.Yield(); throw exception; })).Errors[0].Exception);
+        Assert.True((await start.BranchAsync<int>(_ => true,
+            (_, _) => Task.FromResult<RailResult<int>>(null!), (_, _) => throw new Exception())).IsFailed);
+        Assert.Throws<OperationCanceledException>(() => start.Branch<int>(_ => throw new OperationCanceledException(),
+            _ => throw new Exception(), _ => throw new Exception()));
+        Assert.Throws<OperationCanceledException>(() => start.Branch<int>(_ => true,
+            _ => throw new OperationCanceledException(), _ => throw new Exception()));
+        await Assert.ThrowsAsync<OperationCanceledException>(() => start.BranchAsync<int>(_ => true,
+            (_, _) => throw new OperationCanceledException(), (_, _) => throw new Exception()));
+        await Assert.ThrowsAsync<OperationCanceledException>(() => start.BranchAsync<int>(_ => throw new OperationCanceledException(),
+            (_, _) => throw new Exception(), (_, _) => throw new Exception()));
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        foreach (var input in new[] { start, RailResult<int>.Failed("original") })
+            await Assert.ThrowsAsync<OperationCanceledException>(() => input.BranchAsync<int>(_ => throw new Exception(),
+                (_, _) => throw new Exception(), (_, _) => throw new Exception(), cts.Token));
+    }
+
+    [Fact]
+    public async Task Branches_validate_all_arguments_even_on_failure()
+    {
+        var failed = RailResult<int>.Failed("original");
+        Assert.Throws<ArgumentNullException>(() => failed.Branch<int>(null!, n => RailResult<int>.Passed(n), n => RailResult<int>.Passed(n)));
+        Assert.Throws<ArgumentNullException>(() => failed.Branch<int>(_ => false, null!, n => RailResult<int>.Passed(n)));
+        Assert.Throws<ArgumentNullException>(() => failed.Branch<int>(_ => true, n => RailResult<int>.Passed(n), null!));
+        await Assert.ThrowsAsync<ArgumentNullException>(() => failed.BranchAsync<int>((Func<int, bool>)null!, (_, _) => throw new Exception(), (_, _) => throw new Exception()));
+        await Assert.ThrowsAsync<ArgumentNullException>(() => failed.BranchAsync<int>(_ => false, null!, (_, _) => throw new Exception()));
+        await Assert.ThrowsAsync<ArgumentNullException>(() => failed.BranchAsync<int>(_ => true, (_, _) => throw new Exception(), null!));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
     public void Explicit_validation_requires_the_named_boolean(bool condition)
     {
         var start = RailResult<int>.Passed(1);

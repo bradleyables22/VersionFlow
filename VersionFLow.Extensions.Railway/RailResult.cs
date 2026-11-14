@@ -2,7 +2,7 @@ namespace VersionFlow.Extensions.Railway;
 
 /// <summary>An immutable success value or a nonempty, read-only collection of errors.</summary>
 /// <remarks>Values are not cloned. Prefer immutable values when applying recovery.</remarks>
-public sealed class RailResult<T>
+public sealed partial class RailResult<T>
 {
     private readonly T? _value;
 
@@ -80,6 +80,73 @@ public sealed class RailResult<T>
     public RailResult<T> EnsureFalse(Func<T, bool> predicate, RailError error, Func<T, T>? recover = null)
         => EnsureCore(predicate, false, error, recover);
 
+    /// <summary>Requires true asynchronously, optionally correcting once and rechecking.</summary>
+    public Task<RailResult<T>> EnsureAsync(Func<T, CancellationToken, Task<bool>> predicate,
+        string message = "Validation failed.", Func<T, CancellationToken, Task<T>>? recover = null,
+        RailErrorCode? code = null, CancellationToken cancellationToken = default) =>
+        EnsureAsync(predicate, new RailError(message, code ?? RailErrorCodes.ValidationFailed), recover, cancellationToken);
+
+    /// <summary>Requires true asynchronously with a structured validation error.</summary>
+    public Task<RailResult<T>> EnsureAsync(Func<T, CancellationToken, Task<bool>> predicate,
+        RailError error, Func<T, CancellationToken, Task<T>>? recover = null,
+        CancellationToken cancellationToken = default) =>
+        EnsureCoreAsync(predicate, true, error, recover, cancellationToken);
+
+    /// <summary>Requires true asynchronously, optionally correcting once and rechecking.</summary>
+    public Task<RailResult<T>> EnsureTrueAsync(Func<T, CancellationToken, Task<bool>> predicate,
+        string message = "Validation failed.", Func<T, CancellationToken, Task<T>>? recover = null,
+        RailErrorCode? code = null, CancellationToken cancellationToken = default) =>
+        EnsureTrueAsync(predicate, new RailError(message, code ?? RailErrorCodes.ValidationFailed), recover, cancellationToken);
+
+    /// <summary>Requires true asynchronously with a structured validation error.</summary>
+    public Task<RailResult<T>> EnsureTrueAsync(Func<T, CancellationToken, Task<bool>> predicate,
+        RailError error, Func<T, CancellationToken, Task<T>>? recover = null,
+        CancellationToken cancellationToken = default) =>
+        EnsureCoreAsync(predicate, true, error, recover, cancellationToken);
+
+    /// <summary>Requires false asynchronously, optionally correcting once and rechecking.</summary>
+    public Task<RailResult<T>> EnsureFalseAsync(Func<T, CancellationToken, Task<bool>> predicate,
+        string message = "Validation failed.", Func<T, CancellationToken, Task<T>>? recover = null,
+        RailErrorCode? code = null, CancellationToken cancellationToken = default) =>
+        EnsureFalseAsync(predicate, new RailError(message, code ?? RailErrorCodes.ValidationFailed), recover, cancellationToken);
+
+    /// <summary>Requires false asynchronously with a structured validation error.</summary>
+    public Task<RailResult<T>> EnsureFalseAsync(Func<T, CancellationToken, Task<bool>> predicate,
+        RailError error, Func<T, CancellationToken, Task<T>>? recover = null,
+        CancellationToken cancellationToken = default) =>
+        EnsureCoreAsync(predicate, false, error, recover, cancellationToken);
+
+    private async Task<RailResult<T>> EnsureCoreAsync(Func<T, CancellationToken, Task<bool>> predicate,
+        bool expected, RailError error, Func<T, CancellationToken, Task<T>>? recover,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(predicate);
+        var failure = Failed(error);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (IsFailed) return this;
+        try
+        {
+            if (await predicate(Value, cancellationToken).ConfigureAwait(false) == expected) return this;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return Failed(new RailError(error.Message, error.Code, exception));
+        }
+
+        if (recover is null) return failure;
+        try
+        {
+            var corrected = await recover(Value, cancellationToken).ConfigureAwait(false);
+            return await predicate(corrected, cancellationToken).ConfigureAwait(false) == expected
+                ? Passed(corrected)
+                : Failed(error.WithRecovery(new RailRecoveryFailure("The corrected value did not satisfy the condition.")));
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return Failed(error.WithRecovery(new RailRecoveryFailure("Recovery or its validation threw an exception.", exception)));
+        }
+    }
+
     private RailResult<T> EnsureCore(Func<T, bool> predicate, bool expected, RailError error, Func<T, T>? recover)
     {
         ArgumentNullException.ThrowIfNull(predicate);
@@ -129,6 +196,44 @@ public sealed class RailResult<T>
         { return RailResult<TNext>.Failed(exception); }
     }
 
+    /// <summary>Chooses exactly one result-returning path for a successful value.</summary>
+    public RailResult<TNext> Branch<TNext>(Func<T, bool> predicate,
+        Func<T, RailResult<TNext>> whenTrue, Func<T, RailResult<TNext>> whenFalse)
+    {
+        ArgumentNullException.ThrowIfNull(predicate);
+        ArgumentNullException.ThrowIfNull(whenTrue);
+        ArgumentNullException.ThrowIfNull(whenFalse);
+        return Then(value => predicate(value) ? whenTrue(value) : whenFalse(value));
+    }
+
+    /// <summary>Chooses exactly one asynchronous path using a synchronous predicate.</summary>
+    /// <remarks>Forwards cancellation to the selected path; captures exceptions except cancellation.</remarks>
+    public Task<RailResult<TNext>> BranchAsync<TNext>(Func<T, bool> predicate,
+        Func<T, CancellationToken, Task<RailResult<TNext>>> whenTrue,
+        Func<T, CancellationToken, Task<RailResult<TNext>>> whenFalse,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(predicate);
+        ArgumentNullException.ThrowIfNull(whenTrue);
+        ArgumentNullException.ThrowIfNull(whenFalse);
+        return ThenAsync((value, ct) => predicate(value) ? whenTrue(value, ct) : whenFalse(value, ct),
+            cancellationToken);
+    }
+
+    /// <summary>Awaits a predicate and executes exactly one asynchronous path on success.</summary>
+    public Task<RailResult<TNext>> BranchAsync<TNext>(Func<T, CancellationToken, Task<bool>> predicate,
+        Func<T, CancellationToken, Task<RailResult<TNext>>> whenTrue,
+        Func<T, CancellationToken, Task<RailResult<TNext>>> whenFalse,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(predicate);
+        ArgumentNullException.ThrowIfNull(whenTrue);
+        ArgumentNullException.ThrowIfNull(whenFalse);
+        return ThenAsync(async (value, ct) => await predicate(value, ct).ConfigureAwait(false)
+            ? await whenTrue(value, ct).ConfigureAwait(false)
+            : await whenFalse(value, ct).ConfigureAwait(false), cancellationToken);
+    }
+
     public async Task<RailResult<TNext>> SelectAsync<TNext>(
         Func<T, CancellationToken, Task<TNext>> selector, CancellationToken cancellationToken = default)
     {
@@ -169,6 +274,39 @@ public sealed class RailResult<T>
         ArgumentNullException.ThrowIfNull(action);
         if (IsFailed) action(Errors);
         return this;
+    }
+
+    /// <summary>Awaits a success observer and returns this result. Observer exceptions propagate.</summary>
+    public async Task<RailResult<T>> OnSuccessAsync(Func<T, CancellationToken, Task> action,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (IsPassed) await action(Value, cancellationToken).ConfigureAwait(false);
+        return this;
+    }
+
+    /// <summary>Awaits a failure observer and returns this result. Observer exceptions propagate.</summary>
+    public async Task<RailResult<T>> OnFailureAsync(Func<IReadOnlyList<RailError>, CancellationToken, Task> action,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (IsFailed) await action(Errors, cancellationToken).ConfigureAwait(false);
+        return this;
+    }
+
+    /// <summary>Awaits exactly one outcome handler. Handler exceptions propagate.</summary>
+    public async Task<TOutput> MatchAsync<TOutput>(Func<T, CancellationToken, Task<TOutput>> passed,
+        Func<IReadOnlyList<RailError>, CancellationToken, Task<TOutput>> failed,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(passed);
+        ArgumentNullException.ThrowIfNull(failed);
+        cancellationToken.ThrowIfCancellationRequested();
+        return IsPassed
+            ? await passed(Value, cancellationToken).ConfigureAwait(false)
+            : await failed(Errors, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Handles exactly one outcome. Handler exceptions propagate to the caller.</summary>

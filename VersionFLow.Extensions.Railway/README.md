@@ -59,6 +59,8 @@ var response = saved.Match(
 | Ensure(predicate, ...) | Compatibility alias for EnsureTrue |
 | Select(selector) | Transforms success into another value (functional Map) |
 | Then(operation) | Chains an operation returning a result (functional Bind) |
+| Branch(predicate, whenTrue, whenFalse) | Chooses one result-returning path on success |
+| BranchAsync(predicate, whenTrue, whenFalse, cancellationToken) | Chooses one asynchronous path using a synchronous or asynchronous predicate |
 | OnSuccess / OnFailure | Observes one outcome and returns the same result |
 | Match(passed, failed) | Handles one outcome and returns an ordinary value |
 | IsPassed / IsFailed | Inspects the outcome |
@@ -68,6 +70,33 @@ var response = saved.Match(
 Select and Then skip callbacks on failure and carry all existing errors forward, even across value types. Then returns the operation's result directly. Null results from Then become exception failures. There is no implicit conversion or implicit unwrapping.
 
 For operations without a response, use RailResult<RailUnit>.Passed(RailUnit.Value).
+
+## Conditional paths
+
+~~~csharp
+var processed = RailResult<string>.Passed("  customer  ")
+    .Branch(
+        name => name.Length > 10,
+        whenTrue: name => RailResult<string>.Passed(name.Trim()),
+        whenFalse: name => RailResult<string>.Passed(name))
+    .Then(SaveName);
+~~~
+
+Both paths return the same `RailResult<TNext>` type, which can differ from the input type. Only the selected path runs, and its result is returned directly without another wrapper. An incoming failure skips the predicate and both paths, preserving all errors. Each path can contain its own railway chain. A selected failure skips subsequent success steps.
+
+`BranchAsync` accepts either a synchronous predicate or a Task-returning predicate, with Task-returning paths. It forwards the supplied cancellation token to asynchronous callbacks:
+
+~~~csharp
+var processedAsync = await result.BranchAsync(
+    name => name.Length > 10,
+    whenTrue: (name, ct) => SaveNameAsync(name.Trim(), ct),
+    whenFalse: (name, ct) => SaveNameAsync(name, ct),
+    cancellationToken: cts.Token);
+~~~
+
+Here `SaveNameAsync` returns `Task<RailResult<int>>`. Task extensions allow subsequent steps to be chained before awaiting the final result. Like `ThenAsync`, a pre-cancelled token throws even for an incoming failure. Both branch methods capture predicate and selected-path exceptions except cancellation; null results become exception failures. All three callbacks are required and validated even when skipped.
+
+Custom validation errors and correction callbacks belong to `EnsureTrue`/`EnsureFalse`. `Select` wraps an ordinary value in a successful result; `Then` and branch paths return their own success or custom failure. Use `OnFailure` to observe errors without changing the result, or `Match` to consume either outcome.
 
 ## Typed, extensible errors
 
@@ -110,13 +139,114 @@ var label = await savedAsync.SelectAsync(
     cts.Token);
 ~~~
 
-SelectAsync and ThenAsync accept Task-returning callbacks with a CancellationToken. Await each operation before continuing the chain. ValueTask-returning APIs can be adapted with AsTask(). A pre-cancelled token throws before callback execution, including for an already failed result. Callbacks receive the supplied token and are responsible for observing cancellation during their work.
+Every callback-based operation has an async counterpart:
+
+| Synchronous | Asynchronous |
+| --- | --- |
+| Ensure / EnsureTrue / EnsureFalse | EnsureAsync / EnsureTrueAsync / EnsureFalseAsync |
+| Select / Then / Branch | SelectAsync / ThenAsync / BranchAsync |
+| OnSuccess / OnFailure | OnSuccessAsync / OnFailureAsync |
+| Match | MatchAsync |
+| Recover / MapErrors | RecoverAsync / MapErrorsAsync |
+
+Async methods accept Task-returning callbacks with a CancellationToken. You can await each operation or use task extensions to chain steps and await once at the end. ValueTask-returning APIs can be adapted with AsTask(). A pre-cancelled token throws before callback execution, including when an outcome would skip the callback. Callbacks receive the supplied token and are responsible for observing cancellation during their work. Passed/Failed factories and properties remain synchronous; TryAsync starts an asynchronous operation.
+
+Async validation supports the same message/code or structured error overloads as synchronous validation. Both the predicate and optional recovery callback are asynchronous; recovery runs once and the predicate rechecks the corrected value once. EnsureAsync is the compatibility alias for EnsureTrueAsync. For a synchronous predicate with asynchronous recovery, adapt the predicate with Task.FromResult.
+
+~~~csharp
+var validated = await result.EnsureTrueAsync(
+    (name, ct) => Task.FromResult(name.Length <= 10),
+    message: "Name is too long.",
+    recover: (name, ct) => Task.FromResult(name[..10]),
+    cancellationToken: cts.Token);
+
+var observed = await validated.OnSuccessAsync(
+    (name, ct) => Console.Out.WriteLineAsync(name.AsMemory(), ct),
+    cts.Token);
+observed = await observed.OnFailureAsync(
+    (errors, ct) => Console.Error.WriteLineAsync(errors[0].Message.AsMemory(), ct),
+    cts.Token);
+
+var message = await observed.MatchAsync(
+    (name, ct) => Task.FromResult($"Accepted {name}"),
+    (errors, ct) => Task.FromResult(errors[0].Message),
+    cts.Token);
+~~~
+
+OnSuccessAsync and OnFailureAsync await only the matching observer and return the same result instance. MatchAsync awaits only the matching handler and returns its ordinary value.
+
+## Starting operations and composing tasks
+
+`RailResult<T>.Try(Func<T>)` wraps an ordinary return value in success and captures exceptions as failures. `TryAsync(Func<CancellationToken, Task<T>>, cancellationToken)` does the same for asynchronous operations. Cancellation propagates. Use Then/ThenAsync when an operation already returns a result, to avoid nesting results.
+
+Every instance chain operation has an extension on `Task<RailResult<T>>`, including synchronous steps, both validation overloads, both async branch predicates, observers, recovery, error mapping, and Match:
+
+~~~csharp
+var message = await RailResult<string>.TryAsync(
+        ct => File.ReadAllTextAsync("customer.txt", ct), cts.Token)
+    .Select(name => name.Trim())
+    .EnsureTrue(name => name.Length > 0, "Name is required.")
+    .ThenAsync((name, ct) => SaveNameAsync(name, ct), cts.Token)
+    .Recover(errors => RailResult<int>.Passed(0))
+    .Match(id => $"Customer {id}", errors => errors[0].Message);
+~~~
+
+Task extensions await the upstream result before invoking the next step. Faulted upstream tasks propagate their exceptions, including observer exceptions; Recover handles failed results, not faulted tasks. A null upstream result throws InvalidOperationException. Async extension cancellation stops waiting for the upstream task but does not cancel that task's work; pass the token to the original operation too. Tokens are supplied per step, not stored in results.
+
+## Recovering and translating errors
+
+Recover and RecoverAsync run only on a failed result and receive all its errors. The callback returns a replacement `RailResult<T>`, which may itself be a failure. Successful incoming results are returned unchanged. A thrown non-cancellation exception or null fallback result preserves the original errors and appends an exception error. This differs from Ensure recovery, which corrects a value and rechecks a specific rule.
+
+MapErrors and MapErrorsAsync transform each error in input order; async mapping is sequential. The mapper returns one valid RailError for each original error. Successes are unchanged. If mapping throws or produces an invalid error, partial mappings are discarded and the original errors are returned with the exception appended. Cancellation propagates.
+
+To preserve diagnostic details while changing public-facing codes and messages, carry those fields into the replacement:
+
+~~~csharp
+var translated = result.MapErrors(error => new RailError(
+    "Customer processing failed.",
+    new RailErrorCode("customer.processing"),
+    error.Exception,
+    error.RecoveryFailure));
+~~~
+
+Mapping intentionally replaces errors; diagnostic fields are not copied automatically.
+
+## Combining results and processing collections
+
+| Operation | Default failure mode |
+| --- | --- |
+| RailResult.Combine(results) / CombineAsync(tasks) | CollectAll |
+| RailResult.Traverse(items, operation) / TraverseAsync(items, operation) | StopOnFirstFailure |
+
+Both modes preserve input order and return `RailResult<IReadOnlyList<T>>`. Empty inputs succeed with an empty list. Any failure yields errors without a partial success list. StopOnFirstFailure preserves all errors from the first failed item and stops enumeration. CollectAll collects every item's errors in order.
+
+~~~csharp
+var validations = RailResult.Combine(new[]
+{
+    RailResult<string>.Passed("Ada").EnsureTrue(name => name.Length > 0),
+    RailResult<string>.Passed("").EnsureTrue(name => name.Length > 0)
+});
+
+var saved = await RailResult.TraverseAsync(
+    new[] { "Ada", "Grace" },
+    (name, ct) => SaveNameAsync(name, ct),
+    failureMode: RailFailureMode.CollectAll,
+    cancellationToken: cts.Token);
+~~~
+
+Traversal invokes operations sequentially, including async traversal, and checks cancellation between items. Operation exceptions and null results become item failures; cancellation propagates. An enumeration exception terminates processing in either mode and is appended to errors already collected.
+
+CombineAsync awaits supplied tasks in input order and captures their faults as item errors. It does not cancel already-started tasks. With early stopping or cancellation, later tasks are not awaited; callers retain responsibility for those tasks. Prefer TraverseAsync when the library should control when each operation starts.
+
+## Result and side-effect contract
+
+A result's outcome and error collection are immutable, but its successful value may reference a mutable object. Results do not clone values, roll back mutations, or undo external side effects. Observers return the same result and may throw. Cancellation is control flow and propagates rather than becoming a failure. Recovery, mapping, and traversal do not automatically retry operations or establish transactions.
 
 ## Exceptions and cancellation
 
-EnsureTrue, EnsureFalse, Ensure, Select, Then, SelectAsync, and ThenAsync capture callback exceptions as errors. Recovery exceptions attach to the original validation error instead of replacing it. OperationCanceledException (including TaskCanceledException) always propagates from callbacks. Explicit Failed(exception) factories store exactly the exception provided, including cancellation exceptions if deliberately supplied.
+EnsureTrue, EnsureFalse, Ensure, Select, Then, Branch, and their async counterparts capture callback exceptions as errors. Recovery exceptions attach to the original validation error instead of replacing it. OperationCanceledException (including TaskCanceledException) always propagates from callbacks. Explicit Failed(exception) factories store exactly the exception provided, including cancellation exceptions if deliberately supplied.
 
-OnSuccess, OnFailure, and Match exceptions propagate: these callbacks observe or consume the outcome and do not silently replace it. Invalid API arguments also throw, even when a step would otherwise be skipped.
+OnSuccess, OnFailure, Match, and their async counterparts propagate exceptions: these callbacks observe or consume the outcome and do not silently replace it. Invalid API arguments also throw, even when a step would otherwise be skipped.
 
 Exception objects are intended for diagnostics. Use Match to choose safe messages and response types for public HTTP responses.
 
