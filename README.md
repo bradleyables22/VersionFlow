@@ -17,9 +17,15 @@ Optional packages:
 ```xml
 <PackageReference Include="VersionFlow.Extensions.DI" Version="1.0.1" />
 <PackageReference Include="VersionFlow.Extensions.Cqrs" Version="1.0.1" />
+<PackageReference Include="VersionFlow.Extensions.Railway" Version="1.0.1" />
+<PackageReference Include="VersionFlow.Extensions.Results" Version="1.0.1" />
+<PackageReference Include="VersionFlow.Extensions.Results.AspNetCore" Version="1.0.1" />
 ```
 
-DI provides `[Service]` registration. CQRS provides direct-call handler interfaces. Both work independently of Core and each other.
+DI provides `[Service]` registration. CQRS provides direct-call handler interfaces. Railway provides typed results, validation with optional recovery, and fluent operation chaining. All three work independently of Core and each other. See [the Railway README](VersionFLow.Extensions.Railway/README.md) for usage and exception semantics.
+
+For plain operation outcomes and numbered, offset, or cursor pages, see [Results](VersionFlow.Extensions.Results/README.md). The optional [ASP.NET Core adapter](VersionFlow.Extensions.Results.AspNetCore/README.md) maps them to HTTP responses. Results works independently of Core and Railway.
+
 
 ## Quick start: versioned CQRS handler
 
@@ -235,10 +241,12 @@ The DI extension uses native registrations per binding: interface and concrete b
 ```sh
 dotnet build VersionFlow.slnx -c Release
 dotnet test VersionFlow.slnx -c Release --no-build
-dotnet pack VersionFlow.slnx -c Release --no-build -o artifacts/packages/1.0.1
+dotnet pack VersionFlow.slnx -c Release --no-build -o artifacts/packages
 ```
 
-Publish only VersionFlow.Core, VersionFlow.Extensions.DI, and VersionFlow.Extensions.Cqrs. The generator project builds but is embedded in Core. CI checks the packed Core using a fresh package-only consumer, including referenced-library discovery.
+Each package has its own `<Version>` in its `.csproj`. Bump only the packages being released; their versions do not need to match. To pack one package, run `dotnet pack <path-to-project.csproj> -c Release -o artifacts/packages`. When changing Core's version, update its PackageReference in both package smoke projects under `tests`.
+
+Publish VersionFlow.Core, VersionFlow.Extensions.DI, VersionFlow.Extensions.Cqrs, VersionFlow.Extensions.Railway, VersionFlow.Extensions.Results, and VersionFlow.Extensions.Results.AspNetCore as needed. The generator project builds but is embedded in Core. CI checks the packed Core using a fresh package-only consumer, including referenced-library discovery.
 
 Run the sample with `dotnet run --project samples/VersionFlow.SampleWeb`. Its README lists the endpoints. Each published project has its own usage README, MIT license, and embedded icon.
 

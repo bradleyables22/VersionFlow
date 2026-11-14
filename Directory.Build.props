@@ -3,7 +3,6 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
-    <Version>1.0.1</Version>
     <Authors>Bradley Ables</Authors>
     <Copyright>Copyright (c) 2026 Bradley Ables</Copyright>
     <Description>Strongly typed configuration-driven service and method version routing.</Description>

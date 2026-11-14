@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Version>1.0.1</Version>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>VersionFlow.Extensions.Railway</AssemblyName>
+    <RootNamespace>VersionFlow.Extensions.Railway</RootNamespace>
+    <PackageId>VersionFlow.Extensions.Railway</PackageId>
+    <Description>Dependency-free railway results with typed errors, validation, recovery, and fluent operation chaining.</Description>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

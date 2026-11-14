@@ -7,7 +7,7 @@
   <ItemGroup>
     <!-- Core and the fixture library both consume packages, never runtime/generator source projects. -->
     <ProjectReference Include="../VersionFlow.PackageSmoke.Library/VersionFlow.PackageSmoke.Library.csproj" />
-    <PackageReference Include="VersionFlow.Core" Version="$(Version)" />
+    <PackageReference Include="VersionFlow.Core" Version="1.0.1" />
   </ItemGroup>
 </Project>
 

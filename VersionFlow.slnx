@@ -5,6 +5,9 @@
 <Project Path="VersionFlow.Core/VersionFlow.Core.csproj" />
 <Project Path="VersionFlow.Extensions.Cqrs/VersionFlow.Extensions.Cqrs.csproj" Id="ba0d079b-7a4a-4756-9d22-093f2df6b948" />
 <Project Path="VersionFlow.Extensions.DI/VersionFlow.Extensions.DI.csproj" Id="f7855d43-8f1c-4989-af31-c4a5321b20a3" />
+<Project Path="VersionFLow.Extensions.Railway/VersionFLow.Extensions.Railway.csproj" />
+<Project Path="VersionFlow.Extensions.Results.AspNetCore/VersionFlow.Extensions.Results.AspNetCore.csproj" />
+<Project Path="VersionFlow.Extensions.Results/VersionFlow.Extensions.Results.csproj" Id="69c49cf5-b640-4d15-976f-7a7cb764cd90" />
 <Project Path="VersionFlow.Generator/VersionFlow.Generator.csproj" />
 </Solution>
 
