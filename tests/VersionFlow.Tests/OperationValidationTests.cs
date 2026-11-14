@@ -17,7 +17,7 @@ public sealed class OperationValidationTests
         var constructions = 0;
         var callbacks = 0;
         services.AddTransient<NewOrder>(_ => { constructions++; return new NewOrder(); });
-        services.AddVersionFlow(o => o.Methods["Orders.Process"] = "1");
+        services.AddVersionFlow(o => o.Overrides.Classes["Orders"] = new() { Methods = { ["Process"] = "1" } });
         using var provider = services.BuildServiceProvider(); using var scope = provider.CreateScope();
         var flow = scope.ServiceProvider.GetRequiredService<IVersionFlow>();
         var error = Assert.Throws<VersionFlowSelectionException>(() => flow.For(operation).UseLatest()
@@ -33,7 +33,7 @@ public sealed class OperationValidationTests
     {
         var services = RuntimeTests.Services();
         services.AddVersionFlowOperation("Company.Orders.Process");
-        services.AddVersionFlow(o => { o.Methods["Orders.Process"] = "1"; o.Methods["Company.Orders.Process"] = "2"; });
+        services.AddVersionFlow(o => { o.Overrides.Classes["Orders"] = new() { Methods = { ["Process"] = "1" } }; o.Overrides.Classes["Company.Orders"] = new() { Methods = { ["Process"] = "2" } }; });
         using var provider = services.BuildServiceProvider(); using var scope = provider.CreateScope();
         var flow = scope.ServiceProvider.GetRequiredService<IVersionFlow>();
         Assert.Equal(1, flow.For("Orders.Process").Match<int>().Version<OldOrder>(1, _ => 1).Version<NewOrder>(2, _ => 2).Execute());

@@ -1,11 +1,11 @@
 # VersionFlow.Generator
 
-**1.0.1 · compiler component · MIT**
+**compiler component · MIT**
 
 This is a development project, not a separately published package. Its DLL is bundled in VersionFlow.Core under analyzers/dotnet/cs. Applications install only:
 
-```xml
-<PackageReference Include="VersionFlow.Core" Version="1.0.1" />
+```sh
+dotnet add package VersionFlow.Core
 ```
 
 ## What it generates
@@ -26,9 +26,9 @@ For independent methods, use Versioned(typeof(IContract)) on the host and Versio
 
 ## Development and multiple assemblies
 
-The generator targets netstandard2.0 for compiler hosting and uses Roslyn 4.14 APIs. Runtime applications target .NET 10+. Source-tree consumers reference this project as an analyzer with OutputItemType="Analyzer" and ReferenceOutputAssembly="false"; package consumers get it from Core automatically.
+The generator targets .NET Standard for compiler hosting and uses Roslyn APIs. Runtime applications target .NET. Source-tree consumers reference this project as an analyzer with OutputItemType="Analyzer" and ReferenceOutputAssembly="false"; package consumers get it from Core automatically.
 
-Each declaring assembly exposes a GeneratedCatalog under VersionFlow.Generated.Assembly_<sanitized assembly name>. Non-alphanumeric assembly-name characters become underscores. Avoid names that collide after sanitizing. Referenced generated catalogs are linked using compile-time symbols, and runtime discovery deduplicates their types. Rebuild startup and declaring projects against 1.0.1 to emit the new metadata. Dynamic plugins and arbitrary loaded assemblies are not scanned.
+Each declaring assembly exposes a GeneratedCatalog under VersionFlow.Generated.Assembly_<sanitized assembly name>. Non-alphanumeric assembly-name characters become underscores. Avoid names that collide after sanitizing. Referenced generated catalogs are linked using compile-time symbols, and runtime discovery deduplicates their types. Rebuild startup and declaring projects to emit the catalog metadata. Dynamic plugins and arbitrary loaded assemblies are not scanned.
 
 AddVersionFlow starts from the calling assembly; shared helpers can specify its assembly argument. Explicit catalog APIs remain for advanced/manual integrations with autoRegister:false. Native AOT is not certified.
 

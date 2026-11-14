@@ -1,11 +1,11 @@
 # VersionFlow.Extensions.DI
 
-**1.0.1 · .NET 10+ · MIT**
+**.NET · MIT**
 
 Attribute-based registration for Microsoft dependency injection, independent of Core and CQRS.
 
-```xml
-<PackageReference Include="VersionFlow.Extensions.DI" Version="1.0.1" />
+```sh
+dotnet add package VersionFlow.Extensions.DI
 ```
 
 ## Register services
@@ -71,7 +71,7 @@ Annotate versioned classes with concrete-only Service plus Versioned:
 public sealed class PricingV1 : IPricing { /* implementation */ }
 ```
 
-Install Core and import VersionFlow for Versioned. Startup in 1.0.1:
+Install Core and import VersionFlow for Versioned. Startup:
 
 ```csharp
 builder.Services.AddAttributedServices();

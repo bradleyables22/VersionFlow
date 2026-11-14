@@ -8,28 +8,53 @@ namespace VersionFlow;
 public sealed class VersionFlowOptions
 {
     public string Default { get; set; } = "Latest";
-    public Dictionary<string, string> Classes { get; set; } = new(StringComparer.Ordinal);
-    public Dictionary<string, string> Methods { get; set; } = new(StringComparer.Ordinal);
+    public VersionFlowOverrides Overrides { get; set; } = new();
+    /// <summary>Named boolean gates, matched using case-sensitive ordinal names.</summary>
+    public Dictionary<string, bool> Flags { get; set; } = new(StringComparer.Ordinal);
     public bool ValidateOnStart { get; set; } = true;
     public string MissingVersionBehavior { get; set; } = "Throw";
 }
+public sealed class VersionFlowOverrides
+{
+    public Dictionary<string, VersionFlowClassOverride> Classes { get; set; } = new(StringComparer.Ordinal);
+}
+public sealed class VersionFlowClassOverride
+{
+    public string? Version { get; set; }
+    public Dictionary<string, string> Methods { get; set; } = new(StringComparer.Ordinal);
+}
 internal sealed record ConfigurationSnapshot(long Identity, VersionChoice Default,
-    ImmutableDictionary<string, VersionChoice> Classes, ImmutableDictionary<string, VersionChoice> Methods);
+    ImmutableDictionary<string, VersionChoice> Classes, ImmutableDictionary<string, VersionChoice> Methods,
+    ImmutableDictionary<string, bool> Flags);
 
 internal static class ConfigurationParser
 {
     public static ConfigurationSnapshot Parse(VersionFlowOptions options, VersionFlowCatalog catalog, long identity)
     {
         if (options.MissingVersionBehavior != "Throw") throw new VersionFlowConfigurationException("Only MissingVersionBehavior=Throw is supported.");
-        var snapshot = new ConfigurationSnapshot(identity, VersionChoice.Parse(options.Default),
-            (options.Classes ?? throw new VersionFlowConfigurationException("Classes cannot be null.")).ToImmutableDictionary(x => x.Key, x => VersionChoice.Parse(x.Value), StringComparer.Ordinal),
-            (options.Methods ?? throw new VersionFlowConfigurationException("Methods cannot be null.")).ToImmutableDictionary(x => x.Key, x => VersionChoice.Parse(x.Value), StringComparer.Ordinal));
-        foreach (var key in snapshot.Classes.Keys)
+        var overrides = options.Overrides ?? throw new VersionFlowConfigurationException("Overrides cannot be null.");
+        var classes = overrides.Classes ?? throw new VersionFlowConfigurationException("Overrides.Classes cannot be null.");
+        var classChoices = ImmutableDictionary.CreateBuilder<string, VersionChoice>(StringComparer.Ordinal);
+        var methodChoices = ImmutableDictionary.CreateBuilder<string, VersionChoice>(StringComparer.Ordinal);
+        foreach (var (key, settings) in classes)
+        {
             if (!catalog.Contracts.ContainsKey(key) && !catalog.FluentOperations.Any(o => Split(o).Key == key))
                 throw new VersionFlowConfigurationException($"Unknown class key '{key}'. Link its generated catalog or declare its fluent operation.");
-        foreach (var key in snapshot.Methods.Keys)
-            if (!catalog.FluentOperations.Contains(key) && !catalog.Contracts.Values.Any(c => c.Methods.Keys.Any(m => c.Key + "." + m == key)))
-                throw new VersionFlowConfigurationException($"Unknown method key '{key}'.");
+            if (settings is null) throw new VersionFlowConfigurationException($"Overrides.Classes.{key} cannot be null.");
+            if (settings.Version is not null) classChoices.Add(key, VersionChoice.Parse(settings.Version));
+            if (settings.Methods is null) throw new VersionFlowConfigurationException($"Overrides.Classes.{key}.Methods cannot be null.");
+            foreach (var (method, version) in settings.Methods)
+            {
+                var operation = key + "." + method;
+                if (!(catalog.Contracts.TryGetValue(key, out var contract) && contract.Methods.ContainsKey(method)) &&
+                    !(catalog.FluentOperations.Contains(operation) && Split(operation).Key == key))
+                    throw new VersionFlowConfigurationException($"Unknown method key '{operation}'.");
+                methodChoices.Add(operation, VersionChoice.Parse(version));
+            }
+        }
+        var flags = options.Flags ?? throw new VersionFlowConfigurationException("Flags cannot be null.");
+        var snapshot = new ConfigurationSnapshot(identity, VersionChoice.Parse(options.Default), classChoices.ToImmutable(), methodChoices.ToImmutable(),
+            flags.ToImmutableDictionary(StringComparer.Ordinal));
         foreach (var contract in catalog.Contracts.Values)
             foreach (var method in contract.Methods)
                 try { VersionFlowSelector.Choose(snapshot, contract.Key, method.Key, method.Value, null); }

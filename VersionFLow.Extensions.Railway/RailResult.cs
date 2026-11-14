@@ -53,12 +53,34 @@ public sealed class RailResult<T>
         return new RailResult<T>(Array.AsReadOnly(copy));
     }
 
-    /// <summary>Validates the value, optionally correcting it once and rechecking the same rule.</summary>
+    /// <summary>Compatibility alias for EnsureTrue; the predicate must return true to pass.</summary>
     public RailResult<T> Ensure(Func<T, bool> predicate, string message = "Validation failed.",
         Func<T, T>? recover = null, RailErrorCode? code = null) =>
-        Ensure(predicate, new RailError(message, code ?? RailErrorCodes.ValidationFailed), recover);
+        EnsureTrue(predicate, message, recover, code);
 
+    /// <summary>Compatibility alias for EnsureTrue; the predicate must return true to pass.</summary>
     public RailResult<T> Ensure(Func<T, bool> predicate, RailError error, Func<T, T>? recover = null)
+        => EnsureTrue(predicate, error, recover);
+
+    /// <summary>Requires true, optionally correcting the value once and rechecking for true.</summary>
+    public RailResult<T> EnsureTrue(Func<T, bool> predicate, string message = "Validation failed.",
+        Func<T, T>? recover = null, RailErrorCode? code = null) =>
+        EnsureTrue(predicate, new RailError(message, code ?? RailErrorCodes.ValidationFailed), recover);
+
+    /// <summary>Requires true, optionally correcting the value once and rechecking for true.</summary>
+    public RailResult<T> EnsureTrue(Func<T, bool> predicate, RailError error, Func<T, T>? recover = null)
+        => EnsureCore(predicate, true, error, recover);
+
+    /// <summary>Requires false, optionally correcting the value once and rechecking for false.</summary>
+    public RailResult<T> EnsureFalse(Func<T, bool> predicate, string message = "Validation failed.",
+        Func<T, T>? recover = null, RailErrorCode? code = null) =>
+        EnsureFalse(predicate, new RailError(message, code ?? RailErrorCodes.ValidationFailed), recover);
+
+    /// <summary>Requires false, optionally correcting the value once and rechecking for false.</summary>
+    public RailResult<T> EnsureFalse(Func<T, bool> predicate, RailError error, Func<T, T>? recover = null)
+        => EnsureCore(predicate, false, error, recover);
+
+    private RailResult<T> EnsureCore(Func<T, bool> predicate, bool expected, RailError error, Func<T, T>? recover)
     {
         ArgumentNullException.ThrowIfNull(predicate);
         // Validate even when this step is skipped, like other invalid API arguments.
@@ -66,7 +88,7 @@ public sealed class RailResult<T>
         if (IsFailed) return this;
         try
         {
-            if (predicate(Value)) return this;
+            if (predicate(Value) == expected) return this;
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -77,7 +99,7 @@ public sealed class RailResult<T>
         try
         {
             var corrected = recover(Value);
-            return predicate(corrected)
+            return predicate(corrected) == expected
                 ? Passed(corrected)
                 : Failed(error.WithRecovery(new RailRecoveryFailure("The corrected value did not satisfy the condition.")));
         }

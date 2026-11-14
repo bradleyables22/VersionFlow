@@ -1,11 +1,11 @@
 # VersionFlow.Extensions.Railway
 
-**1.0.1 · .NET 10+ · MIT**
+**.NET · MIT**
 
 Dependency-free railway results for C# applications. Works independently of VersionFlow Core, DI, and CQRS.
 
 ~~~xml
-<PackageReference Include="VersionFlow.Extensions.Railway" Version="1.0.1" />
+dotnet add package VersionFlow.Extensions.Railway
 ~~~
 
 ## Validate and correct
@@ -14,17 +14,17 @@ Dependency-free railway results for C# applications. Works independently of Vers
 using VersionFlow.Extensions.Railway;
 
 var result = RailResult<string>.Passed("A long customer name")
-    .Ensure(name => name.Length <= 10,
+    .EnsureTrue(name => name.Length <= 10,
         "Name must be ten characters or fewer.",
         recover: name => name[..10])
-    .Ensure(name => !string.IsNullOrWhiteSpace(name), "Name is required.");
+    .EnsureFalse(string.IsNullOrWhiteSpace, "Name is required.");
 
 string message = result.Match(
     passed: name => $"Accepted {name}",
     failed: errors => errors[0].Message);
 ~~~
 
-Ensure stops at the first failure. Recovery belongs to that specific rule: it runs once, then the same predicate checks the corrected value once. A passing rule never invokes recovery. Earlier failures skip subsequent rules and their recovery callbacks. If the initial predicate throws, its exception is captured without attempting recovery.
+EnsureTrue requires the predicate to return true; EnsureFalse requires false. Ensure remains a compatibility alias for EnsureTrue. Both explicit methods stop at the first failure. Recovery belongs to that specific rule: it runs once, then the same predicate checks the corrected value once. A passing rule never invokes recovery. Earlier failures skip subsequent rules and their recovery callbacks. If the initial predicate throws, its exception is captured without attempting recovery.
 
 If correction does not satisfy the rule, the original error remains with RailRecoveryFailure details. If correction or its recheck throws, those details contain the exception. Successful correction replaces the value and leaves no error.
 
@@ -52,8 +52,11 @@ var response = saved.Match(
 | Failed(message) | Creates failure with an optional code |
 | Failed(error) / Failed(errors) | Creates failure from structured errors |
 | Failed(exception) / Failed(message, exception) | Captures an exception with an optional code |
-| Ensure(predicate, message, recover, code) | Validates, optionally corrects, then rechecks |
-| Ensure(predicate, error, recover) | Validates with a structured error |
+| EnsureTrue(predicate, message, recover, code) | Validates, optionally corrects, then rechecks |
+| EnsureTrue(predicate, error, recover) | Validates with a structured error |
+| EnsureFalse(predicate, message, recover, code) | Requires false, optionally corrects, then rechecks |
+| EnsureFalse(predicate, error, recover) | Requires false with a structured error |
+| Ensure(predicate, ...) | Compatibility alias for EnsureTrue |
 | Select(selector) | Transforms success into another value (functional Map) |
 | Then(operation) | Chains an operation returning a result (functional Bind) |
 | OnSuccess / OnFailure | Observes one outcome and returns the same result |
@@ -80,15 +83,15 @@ var failure = RailResult<string>.Failed(
     "This customer already exists.", CustomerErrorCodes.Duplicate);
 
 var validation = RailResult<string>.Passed("")
-    .Ensure(name => name.Length > 0, "Name is required.",
+    .EnsureTrue(name => name.Length > 0, "Name is required.",
         code: new RailErrorCode("customer.name_required"));
 ~~~
 
-Codes are case-sensitive readonly record structs with value equality. No central enum registration is needed. The default RailErrorCode equals RailErrorCodes.Unspecified. Built-in codes are Unspecified, ValidationFailed, Exception, and RecoveryFailed. Ordinary Failed(message) uses Unspecified; Ensure uses ValidationFailed; exception factories use Exception. Explicit codes override those defaults.
+Codes are case-sensitive readonly record structs with value equality. No central enum registration is needed. The default RailErrorCode equals RailErrorCodes.Unspecified. Built-in codes are Unspecified, ValidationFailed, Exception, and RecoveryFailed. Ordinary Failed(message) uses Unspecified; EnsureTrue and EnsureFalse use ValidationFailed; exception factories use Exception. Explicit codes override those defaults.
 
 RailError is a readonly record struct containing Code, Message, optional Exception, and optional RecoveryFailure. RailRecoveryFailure is a readonly record struct containing Code, Message, and optional Exception. There is no target field.
 
-Failed(IEnumerable<RailError>) defensively copies its input and requires at least one valid error. This lets application validation report several errors together; sequential Ensure calls do not accumulate them. Default error/recovery structs and blank messages are rejected when creating a failure. RailResult<T> is a sealed class with private constructors, preventing an uninitialized default struct from masquerading as a valid outcome.
+Failed(IEnumerable<RailError>) defensively copies its input and requires at least one valid error. This lets application validation report several errors together; sequential validation calls do not accumulate them. Default error/recovery structs and blank messages are rejected when creating a failure. RailResult<T> is a sealed class with private constructors, preventing an uninitialized default struct from masquerading as a valid outcome.
 
 ## Asynchronous operations
 
@@ -111,7 +114,7 @@ SelectAsync and ThenAsync accept Task-returning callbacks with a CancellationTok
 
 ## Exceptions and cancellation
 
-Ensure, Select, Then, SelectAsync, and ThenAsync capture callback exceptions as errors. Recovery exceptions attach to the original validation error instead of replacing it. OperationCanceledException (including TaskCanceledException) always propagates from callbacks. Explicit Failed(exception) factories store exactly the exception provided, including cancellation exceptions if deliberately supplied.
+EnsureTrue, EnsureFalse, Ensure, Select, Then, SelectAsync, and ThenAsync capture callback exceptions as errors. Recovery exceptions attach to the original validation error instead of replacing it. OperationCanceledException (including TaskCanceledException) always propagates from callbacks. Explicit Failed(exception) factories store exactly the exception provided, including cancellation exceptions if deliberately supplied.
 
 OnSuccess, OnFailure, and Match exceptions propagate: these callbacks observe or consume the outcome and do not silently replace it. Invalid API arguments also throw, even when a step would otherwise be skipped.
 

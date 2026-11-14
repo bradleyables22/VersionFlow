@@ -21,9 +21,9 @@ public sealed class AutomaticSetupTests
     public void All_setup_styles_link_local_and_referenced_catalogs_and_dispatchers(int style)
     {
         var services = Services();
-        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Classes:Pricing"] = "1", ["Methods:Pricing.Calculate"] = "2" }).Build();
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Overrides:Classes:Pricing:Version"] = "1", ["Overrides:Classes:Pricing:Methods:Calculate"] = "2" }).Build();
         if (style == 0) services.AddVersionFlow(configuration);
-        else if (style == 1) services.AddVersionFlow(o => { o.Classes["Pricing"] = "1"; o.Methods["Pricing.Calculate"] = "2"; });
+        else if (style == 1) services.AddVersionFlow(o => { o.Overrides.Classes["Pricing"] = new() { Version = "1", Methods = { ["Calculate"] = "2" } }; });
         else if (style == 2) services.AddVersionFlowOptions().Bind(configuration);
         else services.AddVersionFlow();
         services.AddVersionFlow();
@@ -63,7 +63,7 @@ public sealed class AutomaticSetupTests
     {
         var services = RuntimeTests.Services();
         services.AddScoped<IPrice, Price1>();
-        services.AddVersionFlow(o => o.Classes["Pricing"] = "2", autoRegister: false);
+        services.AddVersionFlow(o => o.Overrides.Classes["Pricing"] = new() { Version = "2" }, autoRegister: false);
         using var provider = services.BuildServiceProvider(); using var scope = provider.CreateScope();
         Assert.Equal(20m, scope.ServiceProvider.GetRequiredService<IPrice>().Calculate(2));
         Assert.Equal(18m, scope.ServiceProvider.GetRequiredService<IVersionFlow>().For<IPrice>().Resolve().Calculate(2));

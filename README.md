@@ -1,6 +1,6 @@
 # VersionFlow
 
-**1.0.1 · .NET 10+ · MIT**
+**.NET · MIT**
 
 Choose class and method versions through configuration while calling ordinary typed interfaces. DI creates your implementations; VersionFlow selects which one receives each call.
 
@@ -8,18 +8,18 @@ Choose class and method versions through configuration while calling ordinary ty
 
 Install Core in your application and every project declaring versioned classes. Its NuGet package includes the source generator; there is no separate generator package.
 
-```xml
-<PackageReference Include="VersionFlow.Core" Version="1.0.1" />
+```sh
+dotnet add package VersionFlow.Core
 ```
 
 Optional packages:
 
-```xml
-<PackageReference Include="VersionFlow.Extensions.DI" Version="1.0.1" />
-<PackageReference Include="VersionFlow.Extensions.Cqrs" Version="1.0.1" />
-<PackageReference Include="VersionFlow.Extensions.Railway" Version="1.0.1" />
-<PackageReference Include="VersionFlow.Extensions.Results" Version="1.0.1" />
-<PackageReference Include="VersionFlow.Extensions.Results.AspNetCore" Version="1.0.1" />
+```sh
+dotnet add package VersionFlow.Extensions.DI
+dotnet add package VersionFlow.Extensions.Cqrs
+dotnet add package VersionFlow.Extensions.Railway
+dotnet add package VersionFlow.Extensions.Results
+dotnet add package VersionFlow.Extensions.Results.AspNetCore
 ```
 
 DI provides `[Service]` registration. CQRS provides direct-call handler interfaces. Railway provides typed results, validation with optional recovery, and fluent operation chaining. All three work independently of Core and each other. See [the Railway README](VersionFLow.Extensions.Railway/README.md) for usage and exception semantics.
@@ -75,7 +75,7 @@ builder.Services.AddVersionFlow(builder.Configuration.GetSection("VersionFlow"))
 {
   "VersionFlow": {
     "Default": "Latest",
-    "Classes": { "Pricing": "2" }
+    "Overrides": { "Classes": { "Pricing": { "Version": "2" } } }
   }
 }
 ```
@@ -90,7 +90,7 @@ public sealed class Checkout(IGetPriceHandler pricing)
 }
 ```
 
-This calls GetPriceV2. Switching `Classes:Pricing` to `"1"` selects GetPriceV1. Register each constructor dependency through your usual DI setup too.
+This calls GetPriceV2. Switching `Overrides:Classes:Pricing:Version` to `"1"` selects GetPriceV1. Register each constructor dependency through your usual DI setup too.
 
 **What the two startup calls do:** AddAttributedServices registers concrete implementations. AddVersionFlow reads generated assembly metadata, links available catalogs, installs the runtime, and registers scoped interface dispatchers. You do not need to name a generated catalog or call AddVersionFlowDispatchers for normal setup.
 
@@ -103,7 +103,7 @@ Any supported non-generic interface can be versioned. CQRS is optional. For ordi
 ```csharp
 builder.Services.AddScoped<GetPriceV1>();
 builder.Services.AddScoped<GetPriceV2>();
-builder.Services.AddVersionFlow(options => options.Classes["Pricing"] = "2");
+builder.Services.AddVersionFlow(options => options.Overrides.Classes["Pricing"] = new() { Version = "2" });
 ```
 
 There are no per-version VersionFlow registration calls. Existing transient, scoped, and singleton implementation lifetimes remain intact. Implementations must be registered by concrete type; VersionFlow never silently constructs unregistered services.
@@ -117,8 +117,7 @@ For a class family implementing Calculate and Discount:
 ```json
 {
   "VersionFlow": {
-    "Classes": { "Pricing": "1" },
-    "Methods": { "Pricing.Calculate": "2" }
+    "Overrides": { "Classes": { "Pricing": { "Version": "1", "Methods": { "Calculate": "2" } } } }
   }
 }
 ```
@@ -175,13 +174,36 @@ Only the selected service is resolved and callback executed. Every callback must
 
 AddVersionFlowOperation declares a configuration name, not versions or handlers. Generated operations such as `Pricing.HandleAsync` already have known names and need no extra declaration. Unknown/misspelled names fail at For before any callback executes. Fluent branch availability is checked at execution, because branches can be built dynamically.
 
+## Feature flags
+
+Core also provides named boolean gates, independent of version selection:
+
+```json
+{
+  "VersionFlow": {
+    "Flags": { "EnableExports": true, "NewCheckout": false }
+  }
+}
+```
+
+Check a flag through the existing scoped `IVersionFlow`:
+
+```csharp
+if (flow.IsEnabled("EnableExports"))
+{
+    // Export functionality
+}
+```
+
+Configure flags in code with `options.Flags["EnableExports"] = true`. Names are case-sensitive; missing flags return false. Flags use the same configuration reload mechanism as version settings: subsequent checks see valid updates, including within an existing scope, while invalid updates retain the entire last valid snapshot. Flags do not change version selection or require a versioned service.
+
 ## Options, reload, and scopes
 
 Choose one setup style:
 
 ```csharp
 services.AddVersionFlow(configuration.GetSection("VersionFlow"));
-services.AddVersionFlow(options => options.Classes["Pricing"] = "1");
+services.AddVersionFlow(options => options.Overrides.Classes["Pricing"] = new() { Version = "1" });
 services.AddVersionFlowOptions().Bind(configuration.GetSection("VersionFlow")).ValidateOnStart();
 services.AddVersionFlow(); // Defaults to Latest
 ```
@@ -196,7 +218,7 @@ Facades and IVersionFlow are scoped. Do not inject them into singletons or use b
 
 ## Multiple projects and shared startup helpers
 
-The generator emits catalog metadata for each assembly and typed links to referenced generated catalogs. AddVersionFlow starts at its immediate calling assembly, traverses those links, and deduplicates catalogs. It does not scan arbitrary loaded assemblies or plugin directories. Install Core (with its bundled analyzer) in the startup project and all projects declaring versioned types, and rebuild them for 1.0.1.
+The generator emits catalog metadata for each assembly and typed links to referenced generated catalogs. AddVersionFlow starts at its immediate calling assembly, traverses those links, and deduplicates catalogs. It does not scan arbitrary loaded assemblies or plugin directories. Install Core (with its bundled analyzer) in the startup project and all projects declaring versioned types, and rebuild them.
 
 DI registration is separate. Include implementation assemblies when using the attribute scanner:
 
@@ -213,9 +235,9 @@ services.AddVersionFlow(configuration.GetSection("VersionFlow"), assembly: typeo
 
 Use the startup assembly as root when it brings together several handler libraries. All discovered concrete implementations need DI registration, including currently inactive versions, for startup validation.
 
-## Advanced/manual setup and upgrading from 1.0.0
+## Advanced/manual setup
 
-For normal 1.0.1 usage, remove explicit AddVersionFlowCatalog and AddVersionFlowDispatchers calls. Keep concrete DI registration and AddVersionFlow. If you deliberately register catalogs before setup, those explicit catalogs define the discovery scope and are respected; use the fully automatic path to include referenced catalogs automatically.
+For normal usage, remove explicit AddVersionFlowCatalog and AddVersionFlowDispatchers calls. Keep concrete DI registration and AddVersionFlow. If you deliberately register catalogs before setup, those explicit catalogs define the discovery scope and are respected; use the fully automatic path to include referenced catalogs automatically.
 
 For fluent-only integration or applications that own interface registrations themselves:
 

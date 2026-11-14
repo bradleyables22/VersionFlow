@@ -5,12 +5,69 @@ namespace VersionFlow.Tests;
 
 public sealed class RailwayTests
 {
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Explicit_validation_requires_the_named_boolean(bool condition)
+    {
+        var start = RailResult<int>.Passed(1);
+        Assert.Equal(condition, start.EnsureTrue(_ => condition).IsPassed);
+        Assert.Equal(!condition, start.EnsureFalse(_ => condition).IsPassed);
+        Assert.Equal(condition, start.Ensure(_ => condition).IsPassed);
+        var error = new RailError("invalid", new RailErrorCode("custom"));
+        Assert.Equal(condition, start.Ensure(_ => condition, error).IsPassed);
+        Assert.Equal(error, Assert.Single(start.EnsureFalse(_ => true, error).Errors));
+        Assert.Same(start, start.EnsureFalse(_ => false, recover: _ => throw new Exception()));
+    }
+
+    [Theory]
+    [InlineData(0, true)]
+    [InlineData(1, false)]
+    public void EnsureFalse_recovers_once_and_rechecks_for_false(int corrected, bool passes)
+    {
+        var checks = 0;
+        var repairs = 0;
+        var code = new RailErrorCode("positive");
+        var result = RailResult<int>.Passed(2).EnsureFalse(
+            n => { checks++; return n > 0; }, "must not be positive",
+            _ => { repairs++; return corrected; }, code);
+        Assert.Equal(2, checks);
+        Assert.Equal(1, repairs);
+        Assert.Equal(passes, result.IsPassed);
+        if (passes) Assert.Equal(corrected, result.Value);
+        else
+        {
+            var error = Assert.Single(result.Errors);
+            Assert.Equal(code, error.Code);
+            Assert.NotNull(error.RecoveryFailure);
+        }
+    }
+
+    [Fact]
+    public void EnsureFalse_preserves_skipping_exception_and_argument_behavior()
+    {
+        var failed = RailResult<int>.Failed("original");
+        Assert.Same(failed, failed.EnsureFalse(_ => throw new Exception(), recover: _ => throw new Exception()));
+        Assert.Throws<ArgumentNullException>(() => failed.EnsureFalse(null!));
+        var start = RailResult<int>.Passed(1);
+        var exception = new Exception("broken");
+        Assert.Same(exception, start.EnsureFalse(_ => throw exception,
+            recover: _ => throw new Exception()).Errors[0].Exception);
+        Assert.Same(exception, start.EnsureFalse(_ => true,
+            recover: _ => throw exception).Errors[0].RecoveryFailure!.Value.Exception);
+        Assert.Same(exception, start.EnsureFalse(n => n == 1 ? true : throw exception,
+            recover: _ => 0).Errors[0].RecoveryFailure!.Value.Exception);
+        Assert.Throws<OperationCanceledException>(() => start.EnsureFalse(_ => throw new OperationCanceledException()));
+        Assert.Throws<OperationCanceledException>(() => start.EnsureFalse(_ => true,
+            recover: _ => throw new OperationCanceledException()));
+    }
+
     [Fact]
     public void Chain_transforms_saves_and_matches()
     {
         var observed = 0;
         var output = RailResult<string>.Passed("long name")
-            .Ensure(s => s.Length <= 4, recover: s => s[..4])
+            .EnsureTrue(s => s.Length <= 4, recover: s => s[..4])
             .Select(s => s.Length)
             .Then(n => RailResult<int>.Passed(n * 2))
             .OnSuccess(n => observed = n)
@@ -24,7 +81,7 @@ public sealed class RailwayTests
     public void Failure_skips_every_success_callback_and_recovery()
     {
         var result = RailResult<int>.Failed("original")
-            .Ensure(_ => throw new Exception(), recover: _ => throw new Exception())
+            .EnsureTrue(_ => throw new Exception(), recover: _ => throw new Exception())
             .Select<string>(_ => throw new Exception())
             .Then<int>(_ => throw new Exception())
             .OnSuccess(_ => Assert.Fail("Must skip"));
@@ -41,7 +98,7 @@ public sealed class RailwayTests
         var repairs = 0;
         var code = new RailErrorCode("customer.name");
         var result = RailResult<string>.Passed("abc")
-            .Ensure(s => { checks++; return s.Length <= 1; }, "too long",
+            .EnsureTrue(s => { checks++; return s.Length <= 1; }, "too long",
                 s => { repairs++; return s[..2]; }, code);
         Assert.Equal(2, checks);
         Assert.Equal(1, repairs);
@@ -56,7 +113,7 @@ public sealed class RailwayTests
     public void Recovery_exception_is_attached_to_original_error()
     {
         var exception = new InvalidOperationException("repair failed");
-        var result = RailResult<int>.Passed(1).Ensure(n => n > 2, "too small", _ => throw exception);
+        var result = RailResult<int>.Passed(1).EnsureTrue(n => n > 2, "too small", _ => throw exception);
         var error = Assert.Single(result.Errors);
         Assert.Equal("too small", error.Message);
         Assert.Same(exception, error.RecoveryFailure!.Value.Exception);
@@ -67,7 +124,7 @@ public sealed class RailwayTests
     public void Passing_validation_does_not_recover()
     {
         var result = RailResult<int>.Passed(3);
-        Assert.Same(result, result.Ensure(n => n > 2, recover: _ => throw new Exception()));
+        Assert.Same(result, result.EnsureTrue(n => n > 2, recover: _ => throw new Exception()));
         Assert.Empty(result.Errors);
     }
 
@@ -78,11 +135,11 @@ public sealed class RailwayTests
         var start = RailResult<int>.Passed(1);
         Assert.Same(exception, start.Select<int>(_ => throw exception).Errors[0].Exception);
         Assert.Same(exception, start.Then<int>(_ => throw exception).Errors[0].Exception);
-        Assert.Same(exception, start.Ensure(_ => throw exception).Errors[0].Exception);
+        Assert.Same(exception, start.EnsureTrue(_ => throw exception).Errors[0].Exception);
         Assert.Throws<OperationCanceledException>(() => start.Select<int>(_ => throw new OperationCanceledException()));
         Assert.Throws<OperationCanceledException>(() => start.Then<int>(_ => throw new OperationCanceledException()));
-        Assert.Throws<OperationCanceledException>(() => start.Ensure(_ => throw new OperationCanceledException()));
-        Assert.Throws<OperationCanceledException>(() => start.Ensure(_ => false, recover: _ => throw new OperationCanceledException()));
+        Assert.Throws<OperationCanceledException>(() => start.EnsureTrue(_ => throw new OperationCanceledException()));
+        Assert.Throws<OperationCanceledException>(() => start.EnsureTrue(_ => false, recover: _ => throw new OperationCanceledException()));
         Assert.True(start.Then<int>(_ => null!).IsFailed);
     }
 
@@ -90,7 +147,7 @@ public sealed class RailwayTests
     public void Recheck_exceptions_are_recovery_failures()
     {
         var exception = new Exception("recheck");
-        var result = RailResult<int>.Passed(0).Ensure(n => n == 0 ? false : throw exception, recover: _ => 1);
+        var result = RailResult<int>.Passed(0).EnsureTrue(n => n == 0 ? false : throw exception, recover: _ => 1);
         Assert.Same(exception, result.Errors[0].RecoveryFailure!.Value.Exception);
     }
 
@@ -113,7 +170,7 @@ public sealed class RailwayTests
     {
         Assert.Equal(new RailErrorCode("unspecified"), default(RailErrorCode));
         Assert.Equal(RailErrorCodes.Unspecified, RailResult<int>.Failed("bad").Errors[0].Code);
-        Assert.Equal(RailErrorCodes.ValidationFailed, RailResult<int>.Passed(0).Ensure(_ => false).Errors[0].Code);
+        Assert.Equal(RailErrorCodes.ValidationFailed, RailResult<int>.Passed(0).EnsureTrue(_ => false).Errors[0].Code);
         Assert.Equal(RailErrorCodes.Exception, RailResult<int>.Failed(new Exception()).Errors[0].Code);
         Assert.NotEqual(new RailErrorCode("custom"), new RailErrorCode("CUSTOM"));
         Assert.Null(RailResult<string?>.Passed(null).Value);

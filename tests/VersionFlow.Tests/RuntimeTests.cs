@@ -25,7 +25,7 @@ public sealed class RuntimeTests
     [Fact] public async Task Typed_facades_use_method_class_global_and_explicit_precedence()
     {
         var services = Services();
-        services.AddVersionFlow(o => { o.Classes["Pricing"] = "1"; o.Methods["Pricing.Calculate"] = "2"; });
+        services.AddVersionFlow(o => { o.Overrides.Classes["Pricing"] = new() { Version = "1", Methods = { ["Calculate"] = "2" } }; });
         services.AddVersionFlowDispatchers();
         using var provider = Build(services); using var scope = provider.CreateScope();
         var price = scope.ServiceProvider.GetRequiredService<IPrice>();
@@ -43,7 +43,7 @@ public sealed class RuntimeTests
     }
     [Fact] public void Independent_methods_have_independent_latest_versions()
     {
-        var services = Services(); services.AddVersionFlow(o => o.Methods["Ops.Calculate"] = "1"); services.AddVersionFlowDispatchers();
+        var services = Services(); services.AddVersionFlow(o => o.Overrides.Classes["Ops"] = new() { Methods = { ["Calculate"] = "1" } }); services.AddVersionFlowDispatchers();
         using var provider = Build(services); using var scope = provider.CreateScope();
         var flow = scope.ServiceProvider.GetRequiredService<IVersionFlow>();
         var ops = flow.For<IOperations>().Resolve();
@@ -68,7 +68,7 @@ public sealed class RuntimeTests
     {
         var services = Services();
         foreach (var descriptor in services.Where(d => d.ServiceType == typeof(Price2)).ToArray()) services.Remove(descriptor);
-        services.AddVersionFlow(o => o.Classes["Pricing"] = "1"); services.AddVersionFlowDispatchers();
+        services.AddVersionFlow(o => o.Overrides.Classes["Pricing"] = new() { Version = "1" }); services.AddVersionFlowDispatchers();
         using var provider = Build(services); using var scope = provider.CreateScope();
         var flow = scope.ServiceProvider.GetRequiredService<IVersionFlow>();
         Assert.Equal(10m, flow.For<IPrice>().Resolve().Calculate(1));
@@ -87,7 +87,7 @@ public sealed class RuntimeTests
     }
     [Fact] public async Task Fluent_callbacks_only_resolve_and_execute_selected_branch()
     {
-        var services = Services(); services.AddVersionFlow(o => o.Methods["Orders.Process"] = "2");
+        var services = Services(); services.AddVersionFlow(o => o.Overrides.Classes["Orders"] = new() { Methods = { ["Process"] = "2" } });
         using var provider = Build(services); using var scope = provider.CreateScope();
         var flow = scope.ServiceProvider.GetRequiredService<IVersionFlow>();
         var empty = flow.For("Orders.Process").Match<string>();
@@ -111,25 +111,55 @@ public sealed class RuntimeTests
     public void All_options_setup_styles_and_options_interfaces_work(int style)
     {
         var services = Services();
-        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["VersionFlow:Classes:Pricing"] = "1" }).Build();
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["VersionFlow:Overrides:Classes:Pricing:Version"] = "1" }).Build();
         if (style == 0) services.AddVersionFlow(configuration.GetSection("VersionFlow"));
-        else if (style == 1) services.AddVersionFlow(o => o.Classes["Pricing"] = "1");
+        else if (style == 1) services.AddVersionFlow(o => o.Overrides.Classes["Pricing"] = new() { Version = "1" });
         else services.AddVersionFlowOptions().Bind(configuration.GetSection("VersionFlow")).ValidateOnStart();
-        services.Configure<VersionFlowOptions>(o => o.Methods["Pricing.Calculate"] = "2");
+        services.Configure<VersionFlowOptions>(o => o.Overrides.Classes["Pricing"].Methods["Calculate"] = "2");
         services.AddVersionFlowOptions(); services.AddVersionFlowDispatchers(); services.AddVersionFlowDispatchers();
         using var provider = Build(services); using var scope = provider.CreateScope();
-        Assert.Equal("1", provider.GetRequiredService<IOptions<VersionFlowOptions>>().Value.Classes["Pricing"]);
-        Assert.Equal("1", provider.GetRequiredService<IOptionsMonitor<VersionFlowOptions>>().CurrentValue.Classes["Pricing"]);
-        Assert.Equal("2", scope.ServiceProvider.GetRequiredService<IOptionsSnapshot<VersionFlowOptions>>().Value.Methods["Pricing.Calculate"]);
+        Assert.Equal("1", provider.GetRequiredService<IOptions<VersionFlowOptions>>().Value.Overrides.Classes["Pricing"].Version);
+        Assert.Equal("1", provider.GetRequiredService<IOptionsMonitor<VersionFlowOptions>>().CurrentValue.Overrides.Classes["Pricing"].Version);
+        Assert.Equal("2", scope.ServiceProvider.GetRequiredService<IOptionsSnapshot<VersionFlowOptions>>().Value.Overrides.Classes["Pricing"].Methods["Calculate"]);
         Assert.Equal(18m, scope.ServiceProvider.GetRequiredService<IPrice>().Calculate(2));
         Assert.Single(services, d => d.ServiceType == typeof(IVersionFlow));
         Assert.Single(services, d => d.ServiceType == typeof(IPrice));
     }
-    [Theory] [InlineData("Default", "0")] [InlineData("Default", "latest")] [InlineData("Classes:Unknown", "1")] [InlineData("Methods:Pricing.Unknown", "1")] [InlineData("Methods:Pricing.Calculate", "9")] [InlineData("MissingVersionBehavior", "Fallback")]
+    [Theory] [InlineData("Default", "0")] [InlineData("Default", "latest")] [InlineData("Overrides:Classes:Unknown:Version", "1")] [InlineData("Overrides:Classes:Pricing:Methods:Unknown", "1")] [InlineData("Overrides:Classes:Pricing:Methods:Calculate", "9")] [InlineData("MissingVersionBehavior", "Fallback")]
     public void Invalid_configuration_is_rejected(string key, string value)
     {
         var services = Services(); var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { [key] = value }).Build();
         services.AddVersionFlow(configuration);
+        using var provider = Build(services);
+        Assert.Throws<VersionFlowConfigurationException>(() => provider.GetRequiredService<VersionFlowSelector>());
+    }
+    [Fact] public void Nested_method_only_override_inherits_default()
+    {
+        using var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes("""
+            { "Default": "1", "Overrides": { "Classes": { "Pricing": { "Methods": { "Calculate": "2" } } } } }
+            """));
+        var configuration = new ConfigurationBuilder().AddJsonStream(stream).AddInMemoryCollection().Build();
+        var services = Services(); services.AddVersionFlow(configuration);
+        using var provider = Build(services);
+        var selector = provider.GetRequiredService<VersionFlowSelector>();
+        Assert.Equal(2, selector.Select("Pricing", "Calculate").Number);
+        Assert.Equal(VersionSelectionSource.Method, selector.Select("Pricing", "Calculate").Source);
+        Assert.Equal(1, selector.Select("Pricing", "Discount").Number);
+        Assert.Equal(VersionSelectionSource.Global, selector.Select("Pricing", "Discount").Source);
+    }
+    [Theory]
+    [InlineData(0)] [InlineData(1)] [InlineData(2)] [InlineData(3)] [InlineData(4)]
+    public void Invalid_nested_objects_are_rejected(int invalid)
+    {
+        var services = Services();
+        services.AddVersionFlow(o =>
+        {
+            if (invalid == 0) o.Overrides = null!;
+            else if (invalid == 1) o.Overrides.Classes = null!;
+            else if (invalid == 2) o.Overrides.Classes["Pricing"] = null!;
+            else if (invalid == 3) o.Overrides.Classes["Pricing"] = new() { Methods = null! };
+            else o.Overrides.Classes["Unknown"] = new();
+        });
         using var provider = Build(services);
         Assert.Throws<VersionFlowConfigurationException>(() => provider.GetRequiredService<VersionFlowSelector>());
     }
@@ -159,18 +189,18 @@ public sealed class RuntimeTests
         using var provider = Build(services); using var scope = provider.CreateScope();
         var flow = scope.ServiceProvider.GetRequiredService<IVersionFlow>(); var facade = flow.For<IPrice>().Resolve();
         Assert.Equal(9m, facade.Calculate(1)); var initial = flow.Select("Pricing", "Calculate");
-        configuration["Classes:Pricing"] = "1"; configuration.Reload();
+        configuration["Overrides:Classes:Pricing:Version"] = "1"; configuration.Reload();
         Assert.Equal(10m, facade.Calculate(1)); var valid = flow.Select("Pricing", "Calculate"); Assert.True(valid.SnapshotIdentity > initial.SnapshotIdentity);
-        configuration["Classes:Pricing"] = "777"; configuration.Reload();
+        configuration["Overrides:Classes:Pricing:Version"] = "777"; configuration.Reload();
         Assert.Equal(10m, facade.Calculate(1)); Assert.Equal(valid.SnapshotIdentity, flow.Select("Pricing", "Calculate").SnapshotIdentity);
-        configuration["Classes:Pricing"] = "2"; configuration.Reload(); Assert.Equal(9m, facade.Calculate(1));
+        configuration["Overrides:Classes:Pricing:Version"] = "2"; configuration.Reload(); Assert.Equal(9m, facade.Calculate(1));
     }
     [Fact] public async Task Concurrent_selections_observe_complete_snapshots()
     {
-        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Classes:Pricing"] = "1" }).Build();
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Overrides:Classes:Pricing:Version"] = "1" }).Build();
         var services = Services(); services.AddVersionFlow(configuration);
         using var provider = Build(services); var selector = provider.GetRequiredService<VersionFlowSelector>();
-        var writer = Task.Run(() => { for (var i = 0; i < 100; i++) { configuration["Classes:Pricing"] = i % 2 == 0 ? "2" : "1"; configuration.Reload(); } });
+        var writer = Task.Run(() => { for (var i = 0; i < 100; i++) { configuration["Overrides:Classes:Pricing:Version"] = i % 2 == 0 ? "2" : "1"; configuration.Reload(); } });
         var readers = Enumerable.Range(0, 8).Select(_ => Task.Run(() =>
         {
             for (var i = 0; i < 1000; i++)

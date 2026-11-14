@@ -1,6 +1,6 @@
 # VersionFlow.SampleWeb
 
-.NET 10 sample using VersionFlow **1.0.1**. This application is not published as a NuGet package.
+.NET sample using VersionFlow. This application is not published as a NuGet package.
 
 Run from the solution root:
 

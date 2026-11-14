@@ -12,7 +12,7 @@ public sealed class IntegrationTests
         var services = new ServiceCollection();
         services.AddScoped<External1>(); services.AddScoped<External5>();
         services.AddVersionFlowCatalog<Generated.Assembly_VersionFlow_TestServices.GeneratedCatalog>();
-        services.AddVersionFlow(o => o.Classes["External"] = "1"); services.AddVersionFlowDispatchers();
+        services.AddVersionFlow(o => o.Overrides.Classes["External"] = new() { Version = "1" }); services.AddVersionFlowDispatchers();
         using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
         External1 instance;
         using (var scope = provider.CreateScope())
@@ -42,28 +42,28 @@ public sealed class IntegrationTests
     }
     [Fact] public void Invalid_reload_with_external_options_monitor_does_not_replace_runtime_snapshot()
     {
-        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Classes:Pricing"] = "1" }).Build();
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Overrides:Classes:Pricing:Version"] = "1" }).Build();
         var services = RuntimeTests.Services(); services.AddVersionFlow(configuration);
         using var provider = services.BuildServiceProvider();
         var selector = provider.GetRequiredService<VersionFlowSelector>();
         var monitor = provider.GetRequiredService<IOptionsMonitor<VersionFlowOptions>>();
-        Assert.Equal("1", monitor.CurrentValue.Classes["Pricing"]);
-        configuration["Classes:Pricing"] = "9";
+        Assert.Equal("1", monitor.CurrentValue.Overrides.Classes["Pricing"].Version);
+        configuration["Overrides:Classes:Pricing:Version"] = "9";
         // Microsoft options consumers retain their native validation behavior.
         Assert.ThrowsAny<Exception>(() => configuration.Reload());
         Assert.Equal(1, selector.Select("Pricing", "Calculate").Number);
-        configuration["Classes:Pricing"] = "2"; configuration.Reload();
+        configuration["Overrides:Classes:Pricing:Version"] = "2"; configuration.Reload();
         Assert.Equal(2, selector.Select("Pricing", "Calculate").Number);
-        Assert.Equal("2", monitor.CurrentValue.Classes["Pricing"]);
+        Assert.Equal("2", monitor.CurrentValue.Overrides.Classes["Pricing"].Version);
     }
     [Fact] public void Json_numeric_versions_bind_and_case_sensitive_keys_are_validated()
     {
-        using var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes("""{"Classes":{"Pricing":1}}"""));
+        using var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes("""{"Overrides":{"Classes":{"Pricing":{"Version":1}}}}"""));
         var configuration = new ConfigurationBuilder().AddJsonStream(stream).Build();
         var services = RuntimeTests.Services(); services.AddVersionFlow(configuration);
         using var provider = services.BuildServiceProvider();
         Assert.Equal(1, provider.GetRequiredService<VersionFlowSelector>().Select("Pricing").Number);
-        var other = RuntimeTests.Services(); other.AddVersionFlow(o => o.Classes["pricing"] = "1");
+        var other = RuntimeTests.Services(); other.AddVersionFlow(o => o.Overrides.Classes["pricing"] = new() { Version = "1" });
         using var invalid = other.BuildServiceProvider();
         Assert.Throws<VersionFlowConfigurationException>(() => invalid.GetRequiredService<VersionFlowSelector>());
     }
@@ -71,7 +71,7 @@ public sealed class IntegrationTests
     {
         var configuration = new ConfigurationBuilder().AddInMemoryCollection().Build();
         var services = RuntimeTests.Services(); services.AddVersionFlowOptions().Bind(configuration).Validate(o => o.Default != "2", "policy");
-        services.PostConfigure<VersionFlowOptions>(o => o.Classes["Ops"] = "Latest");
+        services.PostConfigure<VersionFlowOptions>(o => o.Overrides.Classes["Ops"] = new() { Version = "Latest" });
         using var provider = services.BuildServiceProvider();
         var selector = provider.GetRequiredService<VersionFlowSelector>();
         Assert.Equal(2, selector.Select("Pricing").Number);

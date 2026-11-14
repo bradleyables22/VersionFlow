@@ -6,7 +6,7 @@ var services = new ServiceCollection();
 services.AddScoped<ExternalOperation1>(); services.AddScoped<ExternalOperation4>();
 services.AddScoped<Price1>(); services.AddScoped<Price2>(); services.AddScoped<Operations>();
 services.AddVersionFlowOperation("Orders.Process");
-services.AddVersionFlow(o => { o.Classes["Pricing"] = "1"; o.Methods["Pricing.Calculate"] = "2"; o.Methods["Orders.Process"] = "1"; });
+services.AddVersionFlow(o => { o.Overrides.Classes["Pricing"] = new() { Version = "1", Methods = { ["Calculate"] = "2" } }; o.Overrides.Classes["Orders"] = new() { Methods = { ["Process"] = "1" } }; });
 using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = true });
 using var scope = provider.CreateScope();
 Check(scope.ServiceProvider.GetRequiredService<IExternalOperation>().Read() == 4, "referenced library automatic discovery");

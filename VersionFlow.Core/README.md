@@ -1,11 +1,11 @@
 # VersionFlow.Core
 
-**1.0.1 · .NET 10+ · MIT**
+**.NET · MIT**
 
 Strongly typed class and method version routing. The package includes its source generator; install only Core for versioning.
 
-```xml
-<PackageReference Include="VersionFlow.Core" Version="1.0.1" />
+```sh
+dotnet add package VersionFlow.Core
 ```
 
 ## Quick start
@@ -40,7 +40,7 @@ builder.Services.AddVersionFlow(builder.Configuration.GetSection("VersionFlow"))
 {
   "VersionFlow": {
     "Default": "Latest",
-    "Classes": { "Pricing": "2" }
+    "Overrides": { "Classes": { "Pricing": { "Version": "2" } } }
   }
 }
 ```
@@ -59,7 +59,27 @@ With the optional VersionFlow.Extensions.DI package, annotate each implementatio
 
 Versions are positive integers. Keys are case-sensitive; an omitted class key uses the fully qualified contract name. Precedence is explicit choice, method configuration, class configuration, then Default (Latest by default). Latest selects the highest version available for that operation. Unavailable versions throw.
 
-`Methods["Pricing.Calculate"] = "1"` overrides the Pricing class choice for Calculate only. Independent method hosts use the same selection rules but have separate available versions per method. Class-family and independent-method models cannot share a contract/key.
+Overrides are nested by class, with short method names inside each class:
+
+```json
+{
+  "VersionFlow": {
+    "Default": "Latest",
+    "Overrides": {
+      "Classes": {
+        "Pricing": {
+          "Version": "1",
+          "Methods": { "Calculate": "2" }
+        }
+      }
+    }
+  }
+}
+```
+
+`Version` is optional: omitted class versions inherit `Default`, while method overrides still take priority. In code, use `options.Overrides.Classes["Pricing"] = new() { Version = "1", Methods = { ["Calculate"] = "2" } };`. Independent method hosts use the same selection rules but have separate available versions per method. Class-family and independent-method models cannot share a contract/key.
+
+Fluent-only `Orders.Process` uses `Overrides.Classes.Orders.Methods.Process`; a qualified group such as `Company.Orders` remains the full class dictionary key. This replaces the previous top-level `Classes` and `Methods` configuration and options properties; migrate existing configuration to the nested structure.
 
 ## Explicit selection and fluent branches
 
@@ -101,6 +121,27 @@ public sealed class GetPriceV1 : IGetPriceHandler
 
 GetPrice is your request type. Install VersionFlow.Extensions.Cqrs and import its namespace for ICqrsHandler. Register the concrete versions and call AddVersionFlow normally. Inject IGetPriceHandler, not the generic base interface. Its inherited HandleAsync method is supported; the method key is Pricing.HandleAsync.
 
+## Feature flags
+
+Use `VersionFlow:Flags` for named boolean gates independent of version selection:
+
+```json
+{
+  "VersionFlow": {
+    "Flags": { "EnableExports": true, "NewCheckout": false }
+  }
+}
+```
+
+```csharp
+if (flow.IsEnabled("EnableExports"))
+{
+    // Export functionality
+}
+```
+
+`flow` is the existing scoped `IVersionFlow`. For code configuration, set `options.Flags["EnableExports"] = true`. Names are case-sensitive and missing flags return false. No versioned service is required. Valid configuration reloads affect subsequent checks even in an existing scope; invalid updates retain the entire last valid snapshot, including flags and version settings. Flags never alter version selection.
+
 ## Options and lifetime behavior
 
 Choose configuration binding, `AddVersionFlow(options => ...)`, `AddVersionFlowOptions().Bind(...).ValidateOnStart()`, or parameterless AddVersionFlow for Latest defaults. All automatically wire catalogs and dispatchers. Additional Configure/PostConfigure/validators participate normally.
@@ -111,7 +152,7 @@ Host startup validates by default. Set ValidateOnStart=false to defer VersionFlo
 
 ## Referenced projects and advanced setup
 
-Install Core in the startup project and declaring libraries, then rebuild them for 1.0.1. The generator emits assembly metadata and links to referenced generated catalogs. AddVersionFlow discovers from the immediate calling assembly and follows those links, without scanning arbitrary loaded assemblies. Register the concrete implementations from every discovered library; when using attribute DI, pass those assemblies to AddAttributedServices.
+Install Core in the startup project and declaring libraries, then rebuild them. The generator emits assembly metadata and links to referenced generated catalogs. AddVersionFlow discovers from the immediate calling assembly and follows those links, without scanning arbitrary loaded assemblies. Register the concrete implementations from every discovered library; when using attribute DI, pass those assemblies to AddAttributedServices.
 
 For shared bootstrap helpers use `AddVersionFlow(configurationSection, assembly: typeof(MyHandler).Assembly)` to select a different discovery root. Use the application assembly when it combines multiple libraries.
 

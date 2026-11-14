@@ -1,6 +1,6 @@
 # VersionFlow.PackageSmoke
 
-Package-consumer executable for **1.0.1**, intentionally outside the solution so ordinary restore does not require a previously packed release.
+Package-consumer executable for VersionFlow, intentionally outside the solution so ordinary restore does not require a previously packed release.
 
 This project and its PackageSmoke.Library fixture reference only packed Core, never runtime/generator source projects. The consumer registers concrete implementations and calls AddVersionFlow without naming catalogs or registering dispatchers. It verifies automatic discovery in both projects, typed routing, method precedence, explicit overrides, fluent callbacks, and rejection of unknown names.
 

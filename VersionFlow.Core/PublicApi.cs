@@ -49,6 +49,8 @@ public class VersionFlowRegistrationException(string message, Exception? inner =
 
 public interface IVersionFlow
 {
+    /// <summary>Returns the current value of a case-sensitive named flag, or false if it is missing.</summary>
+    bool IsEnabled(string name);
     IVersionFlowContract<T> For<T>() where T : class;
     VersionFlowOperation For(string operationKey);
     VersionSelection Select(string key, string? method = null);

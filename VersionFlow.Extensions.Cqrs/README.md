@@ -1,11 +1,11 @@
 # VersionFlow.Extensions.Cqrs
 
-**1.0.1 · .NET 10+ · MIT**
+**.NET · MIT**
 
 A dependency-free pair of direct-call handler contracts. No registry, mediator, scanner, or DI dependency is required. Commands and queries use the same contracts; use names and application design to distinguish state changes from reads.
 
-```xml
-<PackageReference Include="VersionFlow.Extensions.Cqrs" Version="1.0.1" />
+```sh
+dotnet add package VersionFlow.Extensions.Cqrs
 ```
 
 ## Plain CQRS
@@ -36,7 +36,7 @@ ICqrsHandler<TRequest> returns Task; ICqrsHandler<TRequest, TResponse> returns T
 
 ## Versioned CQRS with Core
 
-Install VersionFlow.Core 1.0.1. Its generator requires a non-generic contract, so wrap the CQRS interface:
+Install VersionFlow.Core. Its generator requires a non-generic contract, so wrap the CQRS interface:
 
 ```csharp
 using VersionFlow;
@@ -66,13 +66,13 @@ The Service attribute above comes from the optional VersionFlow.Extensions.DI pa
 
 ```csharp
 builder.Services.AddAttributedServices();
-builder.Services.AddVersionFlow(options => options.Classes["Pricing"] = "2");
+builder.Services.AddVersionFlow(options => options.Overrides.Classes["Pricing"] = new() { Version = "2" });
 ```
 
 Inject IGetPriceHandler and call HandleAsync normally. Core automatically links generated catalogs and registers the routing interface. Configuration can also come from `AddVersionFlow(builder.Configuration.GetSection("VersionFlow"))`. No catalog or dispatcher call is needed for normal setup.
 
 Do not pass typeof(ICqrsHandler<GetPrice, decimal>) directly to Versioned. Do not use Service interface binding/automatic discovery on the versioned implementations: the dispatcher owns IGetPriceHandler. The inherited HandleAsync method is supported and its configuration key is Pricing.HandleAsync. Directly injecting GetPriceV1 deliberately bypasses routing.
 
-For a multi-project application, reference Core in startup and declaring projects, rebuild them for 1.0.1, and pass the implementation assemblies to AddAttributedServices. Referenced generated catalogs are discovered automatically; DI still needs concrete registrations and constructor dependencies. Core's README covers advanced manual setup and opt-out.
+For a multi-project application, reference Core in startup and declaring projects, rebuild them, and pass the implementation assemblies to AddAttributedServices. Referenced generated catalogs are discovered automatically; DI still needs concrete registrations and constructor dependencies. Core's README covers advanced manual setup and opt-out.
 
 MIT. Copyright (c) 2026 Bradley Ables. Full license included as LICENSE.

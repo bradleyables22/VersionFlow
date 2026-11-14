@@ -2,8 +2,13 @@ using System.Collections.Immutable;
 using Microsoft.Extensions.DependencyInjection;
 namespace VersionFlow;
 
-internal sealed class VersionFlowRuntime(IServiceProvider provider, VersionFlowCatalog catalog, VersionFlowSelector selector) : IVersionFlow
+internal sealed class VersionFlowRuntime(IServiceProvider provider, VersionFlowCatalog catalog, VersionFlowSelector selector, SnapshotStore store) : IVersionFlow
 {
+    public bool IsEnabled(string name)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        return store.Current.Flags.TryGetValue(name, out var enabled) && enabled;
+    }
     public IVersionFlowContract<T> For<T>() where T : class => new Contract<T>(provider, catalog.For(typeof(T)), selector, null);
     public VersionFlowOperation For(string operationKey) => new(provider, selector, operationKey, null);
     public VersionSelection Select(string key, string? method = null) => selector.Select(key, method);

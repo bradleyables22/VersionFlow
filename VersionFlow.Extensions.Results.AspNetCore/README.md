@@ -1,6 +1,6 @@
 # VersionFlow.Extensions.Results.AspNetCore
 
-Optional .NET 10 ASP.NET Core adapter for VersionFlow.Extensions.Results. No service registration is required.
+Optional .NET ASP.NET Core adapter for VersionFlow.Extensions.Results. No service registration is required.
 
 ```csharp
 using VersionFlow.Extensions.Results;

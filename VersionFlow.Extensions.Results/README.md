@@ -1,6 +1,6 @@
 # VersionFlow.Extensions.Results
 
-Standalone .NET 10 result contracts. No Core, DI, Railway, or ASP.NET dependency.
+Standalone .NET result contracts. No Core, DI, Railway, or ASP.NET dependency.
 
 ```csharp
 var saved = TryResult.Succeeded();

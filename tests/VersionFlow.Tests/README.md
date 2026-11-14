@@ -1,6 +1,6 @@
 # VersionFlow.Tests
 
-.NET 10 xUnit tests for VersionFlow **1.0.1**. This project is not published.
+.NET xUnit tests for VersionFlow. This project is not published.
 
 ```sh
 dotnet test VersionFlow.slnx -c Release
