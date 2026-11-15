@@ -268,6 +268,42 @@ public static class RailResultTaskExtensions
         return await result.OnFailureAsync(action, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>Awaits the source and delegates to When, preserving its outcome semantics.</summary>
+    public static async Task<RailResult<T>> When<T>(this Task<RailResult<T>> source,
+        Func<T, bool> predicate, Func<T, RailResult<T>> operation)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(predicate);
+        ArgumentNullException.ThrowIfNull(operation);
+        var result = await source.ConfigureAwait(false)
+            ?? throw new InvalidOperationException("The source task returned a null result.");
+        return result.When(predicate, operation);
+    }
+
+    /// <summary>Awaits the source and delegates to WhenAsync, preserving its outcome semantics.</summary>
+    public static async Task<RailResult<T>> WhenAsync<T>(this Task<RailResult<T>> source,
+        Func<T, bool> predicate, Func<T, CancellationToken, Task<RailResult<T>>> operation, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(predicate);
+        ArgumentNullException.ThrowIfNull(operation);
+        var result = await source.WaitAsync(cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("The source task returned a null result.");
+        return await result.WhenAsync(predicate, operation, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Awaits the source and delegates to WhenAsync, preserving its outcome semantics.</summary>
+    public static async Task<RailResult<T>> WhenAsync<T>(this Task<RailResult<T>> source,
+        Func<T, CancellationToken, Task<bool>> predicate, Func<T, CancellationToken, Task<RailResult<T>>> operation, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(predicate);
+        ArgumentNullException.ThrowIfNull(operation);
+        var result = await source.WaitAsync(cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("The source task returned a null result.");
+        return await result.WhenAsync(predicate, operation, cancellationToken).ConfigureAwait(false);
+    }
+
     /// <summary>Awaits the source and delegates to Branch, preserving its outcome semantics.</summary>
     public static async Task<RailResult<TNext>> Branch<T, TNext>(this Task<RailResult<T>> source,
         Func<T, bool> predicate, Func<T, RailResult<TNext>> whenTrue, Func<T, RailResult<TNext>> whenFalse)

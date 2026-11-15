@@ -59,6 +59,8 @@ var response = saved.Match(
 | Ensure(predicate, ...) | Compatibility alias for EnsureTrue |
 | Select(selector) | Transforms success into another value (functional Map) |
 | Then(operation) | Chains an operation returning a result (functional Bind) |
+| When(predicate, operation) | Runs a same-type operation only when the predicate matches |
+| WhenAsync(predicate, operation, cancellationToken) | Conditional async operation with a sync or async predicate |
 | Branch(predicate, whenTrue, whenFalse) | Chooses one result-returning path on success |
 | BranchAsync(predicate, whenTrue, whenFalse, cancellationToken) | Chooses one asynchronous path using a synchronous or asynchronous predicate |
 | OnSuccess / OnFailure | Observes one outcome and returns the same result |
@@ -97,6 +99,21 @@ var processedAsync = await result.BranchAsync(
 Here `SaveNameAsync` returns `Task<RailResult<int>>`. Task extensions allow subsequent steps to be chained before awaiting the final result. Like `ThenAsync`, a pre-cancelled token throws even for an incoming failure. Both branch methods capture predicate and selected-path exceptions except cancellation; null results become exception failures. All three callbacks are required and validated even when skipped.
 
 Custom validation errors and correction callbacks belong to `EnsureTrue`/`EnsureFalse`. `Select` wraps an ordinary value in a successful result; `Then` and branch paths return their own success or custom failure. Use `OnFailure` to observe errors without changing the result, or `Match` to consume either outcome.
+
+## Conditional steps
+
+Use `When` for an optional operation that preserves the current result when skipped:
+
+~~~csharp
+var normalized = RailResult<string>.Passed("  customer  ")
+    .When(name => name.StartsWith(' '),
+        name => RailResult<string>.Passed(name.Trim()))
+    .Then(SaveName);
+~~~
+
+`Then` runs on every success; `When` additionally requires its predicate to match. A false predicate returns the same result instance. An incoming failure returns unchanged without running either callback. The operation returns `RailResult<T>` with the same value type, and its result is returned directly. A returned failure skips later success steps.
+
+`WhenAsync` accepts a synchronous or asynchronous predicate and an asynchronous operation; cancellation tokens are forwarded to async callbacks. Task extensions support all three forms. As with `Branch`, callback exceptions and null operation results become failures, cancellation propagates, and callbacks are validated even when skipped. A pre-cancelled token throws even for an incoming failure.
 
 ## Typed, extensible errors
 
@@ -144,7 +161,7 @@ Every callback-based operation has an async counterpart:
 | Synchronous | Asynchronous |
 | --- | --- |
 | Ensure / EnsureTrue / EnsureFalse | EnsureAsync / EnsureTrueAsync / EnsureFalseAsync |
-| Select / Then / Branch | SelectAsync / ThenAsync / BranchAsync |
+| Select / Then / Branch / When | SelectAsync / ThenAsync / BranchAsync / WhenAsync |
 | OnSuccess / OnFailure | OnSuccessAsync / OnFailureAsync |
 | Match | MatchAsync |
 | Recover / MapErrors | RecoverAsync / MapErrorsAsync |
@@ -244,7 +261,7 @@ A result's outcome and error collection are immutable, but its successful value 
 
 ## Exceptions and cancellation
 
-EnsureTrue, EnsureFalse, Ensure, Select, Then, Branch, and their async counterparts capture callback exceptions as errors. Recovery exceptions attach to the original validation error instead of replacing it. OperationCanceledException (including TaskCanceledException) always propagates from callbacks. Explicit Failed(exception) factories store exactly the exception provided, including cancellation exceptions if deliberately supplied.
+EnsureTrue, EnsureFalse, Ensure, Select, Then, Branch, When, and their async counterparts capture callback exceptions as errors. Recovery exceptions attach to the original validation error instead of replacing it. OperationCanceledException (including TaskCanceledException) always propagates from callbacks. Explicit Failed(exception) factories store exactly the exception provided, including cancellation exceptions if deliberately supplied.
 
 OnSuccess, OnFailure, Match, and their async counterparts propagate exceptions: these callbacks observe or consume the outcome and do not silently replace it. Invalid API arguments also throw, even when a step would otherwise be skipped.
 
