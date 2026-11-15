@@ -12,6 +12,22 @@ var offset = OffsetTryResult<int>.Succeeded([3, 4], offset: 2, limit: 2, totalCo
 var cursor = CursorTryResult<int>.Succeeded([3, 4], nextCursor: "opaque-token");
 ```
 
+## Value conversions and checks
+
+`value.ToTryResult()` wraps a value as success, including null. Sequences also support `ToCollectionTryResult()`, `ToPagedTryResult(pageNumber, pageSize, totalCount)`, `ToOffsetTryResult(offset, limit, totalCount)`, and `ToCursorTryResult(nextCursor)`. These use the existing factories and their validation and snapshot behavior.
+
+```csharp
+var result = await user.ToTryResult()
+    .FailWhen(u => !u.IsActive, "User is inactive")
+    .FailWhenAsync(async (u, ct) => !await emailService.IsVerifiedAsync(u.Email, ct),
+        "Email is not verified", cancellationToken)
+    .FailWhen(u => u.IsLocked, "User is locked");
+```
+
+`FailWhen` and `FailWhenAsync` check `TryResult<T>` payloads only while successful. A true predicate creates a failure with the required nonblank caller-safe message and default payload. Later checks skip execution and preserve the first failure, including diagnostics. A false predicate preserves the original result. Successful null values reach the predicate, so handle null when using nullable payloads. Arguments are validated even for skipped checks.
+
+Async predicates support both `Func<T, Task<bool>>` and `Func<T, CancellationToken, Task<bool>>`. Task-result overloads allow checks to chain without intermediate awaits. Exceptions and cancellation propagate; they are not converted to failures. Cancellation is checked before and after a cancellable predicate; it also stops waiting for an upstream task without cancelling that upstream operation.
+
 ## Design decisions
 
 `Succeeded` / `Failed` describe the outcome being created; `Pass` / `Fail` sound like operations or validation instructions. `Success` stays the boolean discriminator. There are no aliases or implicit conversions. Expected failures need only a nonblank caller-safe message, not an exception. Exceptions are optional diagnostic context and are never automatically copied into messages.
@@ -20,7 +36,7 @@ Results have private constructors and get-only properties so callers cannot crea
 
 `PagedTryResult<T>` uses one-based page numbers, a positive page size, and an exact nonnegative total. `OffsetTryResult<T>` uses a zero-based offset and positive limit. Both validate that returned items fit the requested window and remaining total; an empty page beyond the end is allowed. Total/page arithmetic uses `long`. Offset continuation advances by the actual returned count; an empty offset page cannot advance.
 
-`CursorTryResult<T>` uses a nullable opaque string, not `object`. Encode database-specific or composite cursors at the application boundary. A null token means completion; an empty string is rejected. An empty page may still carry a token (for example, filtered upstream pages). Cursor paging deliberately requires no total count. Ordinary lists can also use `TryResult<IReadOnlyList<T>>`; the collection variant adds a stable envelope and count. Use Railway when you need validation, recovery, and operation composition rather than duplicating those APIs here.
+`CursorTryResult<T>` uses a nullable opaque string, not `object`. Encode database-specific or composite cursors at the application boundary. A null token means completion; an empty string is rejected. An empty page may still carry a token (for example, filtered upstream pages). Cursor paging deliberately requires no total count. Ordinary lists can also use `TryResult<IReadOnlyList<T>>`; the collection variant adds a stable envelope and count. Use Railway for richer validation, recovery, and operation composition.
 
 ## JSON and HTTP
 

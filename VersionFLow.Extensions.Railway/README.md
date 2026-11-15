@@ -8,6 +8,19 @@ Dependency-free railway results for C# applications. Works independently of Vers
 dotnet add package VersionFlow.Extensions.Railway
 ~~~
 
+## Start from an existing value
+
+Use `ToRailResult()` to start a chain with type inference:
+
+~~~csharp
+using VersionFlow.Extensions.Railway;
+
+var result = "Ada".ToRailResult()
+    .EnsureTrue(name => name.Length <= 10, "Name is too long.");
+~~~
+
+`value.ToRailResult()` is equivalent to `RailResult<T>.Passed(value)`. It wraps the value as success without validating or cloning it. Explicitly nullable values, including null, are supported. Use `Try` or `TryAsync` instead when creating or loading the value may throw.
+
 ## Validate and correct
 
 ~~~csharp
