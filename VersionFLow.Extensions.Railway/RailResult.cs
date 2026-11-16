@@ -15,16 +15,31 @@ public sealed partial class RailResult<T>
 
     private RailResult(IReadOnlyList<RailError> errors) => Errors = errors;
 
+    /// <summary>Whether the result contains a successful value.</summary>
     public bool IsPassed { get; }
+    /// <summary>Whether the result contains errors instead of a value.</summary>
     public bool IsFailed => !IsPassed;
+    /// <summary>Read-only failure details in order; empty on success.</summary>
     public IReadOnlyList<RailError> Errors { get; }
+    /// <summary>The successful value. Throws InvalidOperationException when the result has failed.</summary>
     public T Value => IsPassed ? _value! : throw new InvalidOperationException("A failed result has no value.");
 
+    /// <summary>Wraps a value in a successful result without cloning or validating it; null is allowed.</summary>
+    /// <param name="value">The value to wrap or transform; reference values are not cloned.</param>
+    /// <returns>A successful result containing the supplied value.</returns>
     public static RailResult<T> Passed(T value) => new(value);
 
+    /// <summary>Creates a failed result with a nonblank message and an optional application error code.</summary>
+    /// <param name="message">A nonblank failure description. Use text safe to expose to the caller.</param>
+    /// <param name="code">An optional application error identifier.</param>
+    /// <returns>A failed result containing the supplied failure details.</returns>
     public static RailResult<T> Failed(string message, RailErrorCode code = default) =>
         Failed(new RailError(message, code));
 
+    /// <summary>Creates a failed result, retaining the exception for diagnostics.</summary>
+    /// <param name="exception">The exception retained for diagnostics.</param>
+    /// <param name="code">An optional application error identifier.</param>
+    /// <returns>A failed result containing the supplied failure details.</returns>
     public static RailResult<T> Failed(Exception exception, RailErrorCode? code = null)
     {
         ArgumentNullException.ThrowIfNull(exception);
@@ -33,14 +48,25 @@ public sealed partial class RailResult<T>
             code ?? RailErrorCodes.Exception, exception));
     }
 
+    /// <summary>Creates a failed result, retaining the exception for diagnostics.</summary>
+    /// <param name="message">A nonblank failure description. Use text safe to expose to the caller.</param>
+    /// <param name="exception">The exception retained for diagnostics.</param>
+    /// <param name="code">An optional application error identifier.</param>
+    /// <returns>A failed result containing the supplied failure details.</returns>
     public static RailResult<T> Failed(string message, Exception exception, RailErrorCode? code = null)
     {
         ArgumentNullException.ThrowIfNull(exception);
         return Failed(new RailError(message, code ?? RailErrorCodes.Exception, exception));
     }
 
+    /// <summary>Creates a failed result containing the supplied error.</summary>
+    /// <param name="error">The structured failure to store.</param>
+    /// <returns>A failed result containing the supplied failure details.</returns>
     public static RailResult<T> Failed(RailError error) => Failed(new[] { error });
 
+    /// <summary>Creates a failed result from a nonempty snapshot of the supplied errors.</summary>
+    /// <param name="errors">A nonempty sequence of failure details; copied into a read-only snapshot.</param>
+    /// <returns>A failed result containing the supplied failure details.</returns>
     public static RailResult<T> Failed(IEnumerable<RailError> errors)
     {
         ArgumentNullException.ThrowIfNull(errors);
@@ -54,63 +80,123 @@ public sealed partial class RailResult<T>
     }
 
     /// <summary>Compatibility alias for EnsureTrue; the predicate must return true to pass.</summary>
+    /// <param name="predicate">Must return true for validation to pass; a failed input skips the check.</param>
+    /// <param name="message">A nonblank failure description. Use text safe to expose to the caller.</param>
+    /// <param name="recover">An optional correction applied once when validation fails; the corrected value is checked again.</param>
+    /// <param name="code">The validation error code; null uses RailErrorCodes.ValidationFailed.</param>
+    /// <returns>The validated or successfully corrected result; otherwise a failure. Existing failures are unchanged.</returns>
     public RailResult<T> Ensure(Func<T, bool> predicate, string message = "Validation failed.",
         Func<T, T>? recover = null, RailErrorCode? code = null) =>
         EnsureTrue(predicate, message, recover, code);
 
     /// <summary>Compatibility alias for EnsureTrue; the predicate must return true to pass.</summary>
+    /// <param name="predicate">Must return true for validation to pass; a failed input skips the check.</param>
+    /// <param name="error">The structured error to return if validation fails.</param>
+    /// <param name="recover">An optional correction applied once when validation fails; the corrected value is checked again.</param>
+    /// <returns>The validated or successfully corrected result; otherwise a failure. Existing failures are unchanged.</returns>
     public RailResult<T> Ensure(Func<T, bool> predicate, RailError error, Func<T, T>? recover = null)
         => EnsureTrue(predicate, error, recover);
 
     /// <summary>Requires true, optionally correcting the value once and rechecking for true.</summary>
+    /// <param name="predicate">Must return true for validation to pass; a failed input skips the check.</param>
+    /// <param name="message">A nonblank failure description. Use text safe to expose to the caller.</param>
+    /// <param name="recover">An optional correction applied once when validation fails; the corrected value is checked again.</param>
+    /// <param name="code">The validation error code; null uses RailErrorCodes.ValidationFailed.</param>
+    /// <returns>The validated or successfully corrected result; otherwise a failure. Existing failures are unchanged.</returns>
     public RailResult<T> EnsureTrue(Func<T, bool> predicate, string message = "Validation failed.",
         Func<T, T>? recover = null, RailErrorCode? code = null) =>
         EnsureTrue(predicate, new RailError(message, code ?? RailErrorCodes.ValidationFailed), recover);
 
     /// <summary>Requires true, optionally correcting the value once and rechecking for true.</summary>
+    /// <param name="predicate">Must return true for validation to pass; a failed input skips the check.</param>
+    /// <param name="error">The structured error to return if validation fails.</param>
+    /// <param name="recover">An optional correction applied once when validation fails; the corrected value is checked again.</param>
+    /// <returns>The validated or successfully corrected result; otherwise a failure. Existing failures are unchanged.</returns>
     public RailResult<T> EnsureTrue(Func<T, bool> predicate, RailError error, Func<T, T>? recover = null)
         => EnsureCore(predicate, true, error, recover);
 
     /// <summary>Requires false, optionally correcting the value once and rechecking for false.</summary>
+    /// <param name="predicate">Must return false for validation to pass; a failed input skips the check.</param>
+    /// <param name="message">A nonblank failure description. Use text safe to expose to the caller.</param>
+    /// <param name="recover">An optional correction applied once when validation fails; the corrected value is checked again.</param>
+    /// <param name="code">The validation error code; null uses RailErrorCodes.ValidationFailed.</param>
+    /// <returns>The validated or successfully corrected result; otherwise a failure. Existing failures are unchanged.</returns>
     public RailResult<T> EnsureFalse(Func<T, bool> predicate, string message = "Validation failed.",
         Func<T, T>? recover = null, RailErrorCode? code = null) =>
         EnsureFalse(predicate, new RailError(message, code ?? RailErrorCodes.ValidationFailed), recover);
 
     /// <summary>Requires false, optionally correcting the value once and rechecking for false.</summary>
+    /// <param name="predicate">Must return false for validation to pass; a failed input skips the check.</param>
+    /// <param name="error">The structured error to return if validation fails.</param>
+    /// <param name="recover">An optional correction applied once when validation fails; the corrected value is checked again.</param>
+    /// <returns>The validated or successfully corrected result; otherwise a failure. Existing failures are unchanged.</returns>
     public RailResult<T> EnsureFalse(Func<T, bool> predicate, RailError error, Func<T, T>? recover = null)
         => EnsureCore(predicate, false, error, recover);
 
     /// <summary>Requires true asynchronously, optionally correcting once and rechecking.</summary>
+    /// <param name="predicate">Must return true for validation to pass; a failed input skips the check.</param>
+    /// <param name="message">A nonblank failure description. Use text safe to expose to the caller.</param>
+    /// <param name="recover">An optional correction applied once when validation fails; the corrected value is checked again.</param>
+    /// <param name="code">The validation error code; null uses RailErrorCodes.ValidationFailed.</param>
+    /// <param name="cancellationToken">Cancellation to observe while waiting and pass to token-aware callbacks. Cancellation propagates instead of becoming a failure result.</param>
+    /// <returns>A task returning the validated or successfully corrected result; otherwise a failure. Existing failures are unchanged.</returns>
     public Task<RailResult<T>> EnsureAsync(Func<T, CancellationToken, Task<bool>> predicate,
         string message = "Validation failed.", Func<T, CancellationToken, Task<T>>? recover = null,
         RailErrorCode? code = null, CancellationToken cancellationToken = default) =>
         EnsureAsync(predicate, new RailError(message, code ?? RailErrorCodes.ValidationFailed), recover, cancellationToken);
 
     /// <summary>Requires true asynchronously with a structured validation error.</summary>
+    /// <param name="predicate">Must return true for validation to pass; a failed input skips the check.</param>
+    /// <param name="error">The structured error to return if validation fails.</param>
+    /// <param name="recover">An optional correction applied once when validation fails; the corrected value is checked again.</param>
+    /// <param name="cancellationToken">Cancellation to observe while waiting and pass to token-aware callbacks. Cancellation propagates instead of becoming a failure result.</param>
+    /// <returns>A task returning the validated or successfully corrected result; otherwise a failure. Existing failures are unchanged.</returns>
     public Task<RailResult<T>> EnsureAsync(Func<T, CancellationToken, Task<bool>> predicate,
         RailError error, Func<T, CancellationToken, Task<T>>? recover = null,
         CancellationToken cancellationToken = default) =>
         EnsureCoreAsync(predicate, true, error, recover, cancellationToken);
 
     /// <summary>Requires true asynchronously, optionally correcting once and rechecking.</summary>
+    /// <param name="predicate">Must return true for validation to pass; a failed input skips the check.</param>
+    /// <param name="message">A nonblank failure description. Use text safe to expose to the caller.</param>
+    /// <param name="recover">An optional correction applied once when validation fails; the corrected value is checked again.</param>
+    /// <param name="code">The validation error code; null uses RailErrorCodes.ValidationFailed.</param>
+    /// <param name="cancellationToken">Cancellation to observe while waiting and pass to token-aware callbacks. Cancellation propagates instead of becoming a failure result.</param>
+    /// <returns>A task returning the validated or successfully corrected result; otherwise a failure. Existing failures are unchanged.</returns>
     public Task<RailResult<T>> EnsureTrueAsync(Func<T, CancellationToken, Task<bool>> predicate,
         string message = "Validation failed.", Func<T, CancellationToken, Task<T>>? recover = null,
         RailErrorCode? code = null, CancellationToken cancellationToken = default) =>
         EnsureTrueAsync(predicate, new RailError(message, code ?? RailErrorCodes.ValidationFailed), recover, cancellationToken);
 
     /// <summary>Requires true asynchronously with a structured validation error.</summary>
+    /// <param name="predicate">Must return true for validation to pass; a failed input skips the check.</param>
+    /// <param name="error">The structured error to return if validation fails.</param>
+    /// <param name="recover">An optional correction applied once when validation fails; the corrected value is checked again.</param>
+    /// <param name="cancellationToken">Cancellation to observe while waiting and pass to token-aware callbacks. Cancellation propagates instead of becoming a failure result.</param>
+    /// <returns>A task returning the validated or successfully corrected result; otherwise a failure. Existing failures are unchanged.</returns>
     public Task<RailResult<T>> EnsureTrueAsync(Func<T, CancellationToken, Task<bool>> predicate,
         RailError error, Func<T, CancellationToken, Task<T>>? recover = null,
         CancellationToken cancellationToken = default) =>
         EnsureCoreAsync(predicate, true, error, recover, cancellationToken);
 
     /// <summary>Requires false asynchronously, optionally correcting once and rechecking.</summary>
+    /// <param name="predicate">Must return false for validation to pass; a failed input skips the check.</param>
+    /// <param name="message">A nonblank failure description. Use text safe to expose to the caller.</param>
+    /// <param name="recover">An optional correction applied once when validation fails; the corrected value is checked again.</param>
+    /// <param name="code">The validation error code; null uses RailErrorCodes.ValidationFailed.</param>
+    /// <param name="cancellationToken">Cancellation to observe while waiting and pass to token-aware callbacks. Cancellation propagates instead of becoming a failure result.</param>
+    /// <returns>A task returning the validated or successfully corrected result; otherwise a failure. Existing failures are unchanged.</returns>
     public Task<RailResult<T>> EnsureFalseAsync(Func<T, CancellationToken, Task<bool>> predicate,
         string message = "Validation failed.", Func<T, CancellationToken, Task<T>>? recover = null,
         RailErrorCode? code = null, CancellationToken cancellationToken = default) =>
         EnsureFalseAsync(predicate, new RailError(message, code ?? RailErrorCodes.ValidationFailed), recover, cancellationToken);
 
     /// <summary>Requires false asynchronously with a structured validation error.</summary>
+    /// <param name="predicate">Must return false for validation to pass; a failed input skips the check.</param>
+    /// <param name="error">The structured error to return if validation fails.</param>
+    /// <param name="recover">An optional correction applied once when validation fails; the corrected value is checked again.</param>
+    /// <param name="cancellationToken">Cancellation to observe while waiting and pass to token-aware callbacks. Cancellation propagates instead of becoming a failure result.</param>
+    /// <returns>A task returning the validated or successfully corrected result; otherwise a failure. Existing failures are unchanged.</returns>
     public Task<RailResult<T>> EnsureFalseAsync(Func<T, CancellationToken, Task<bool>> predicate,
         RailError error, Func<T, CancellationToken, Task<T>>? recover = null,
         CancellationToken cancellationToken = default) =>
@@ -177,6 +263,9 @@ public sealed partial class RailResult<T>
     }
 
     /// <summary>Transforms a successful value; captures callback exceptions except cancellation.</summary>
+    /// <typeparam name="TNext">The next payload or item type.</typeparam>
+    /// <param name="selector">Transforms a successful value into the next payload.</param>
+    /// <returns>A result with the transformed payload, or the existing errors when the input failed.</returns>
     public RailResult<TNext> Select<TNext>(Func<T, TNext> selector)
     {
         ArgumentNullException.ThrowIfNull(selector);
@@ -187,6 +276,9 @@ public sealed partial class RailResult<T>
     }
 
     /// <summary>Chains an operation that returns its own result.</summary>
+    /// <typeparam name="TNext">The next payload or item type.</typeparam>
+    /// <param name="operation">The operation to invoke; must not return a null result object.</param>
+    /// <returns>The callback result on success, or the existing errors when the input failed.</returns>
     public RailResult<TNext> Then<TNext>(Func<T, RailResult<TNext>> operation)
     {
         ArgumentNullException.ThrowIfNull(operation);
@@ -197,6 +289,11 @@ public sealed partial class RailResult<T>
     }
 
     /// <summary>Chooses exactly one result-returning path for a successful value.</summary>
+    /// <typeparam name="TNext">The next payload or item type.</typeparam>
+    /// <param name="predicate">Selects whenTrue or whenFalse for a successful value; failed inputs skip branching.</param>
+    /// <param name="whenTrue">The result-producing path used when the predicate returns true.</param>
+    /// <param name="whenFalse">The result-producing path used when the predicate returns false.</param>
+    /// <returns>The result of exactly one selected path, or the existing errors when the input failed.</returns>
     public RailResult<TNext> Branch<TNext>(Func<T, bool> predicate,
         Func<T, RailResult<TNext>> whenTrue, Func<T, RailResult<TNext>> whenFalse)
     {
@@ -208,6 +305,12 @@ public sealed partial class RailResult<T>
 
     /// <summary>Chooses exactly one asynchronous path using a synchronous predicate.</summary>
     /// <remarks>Forwards cancellation to the selected path; captures exceptions except cancellation.</remarks>
+    /// <typeparam name="TNext">The next payload or item type.</typeparam>
+    /// <param name="predicate">Selects whenTrue or whenFalse for a successful value; failed inputs skip branching.</param>
+    /// <param name="whenTrue">The result-producing path used when the predicate returns true.</param>
+    /// <param name="whenFalse">The result-producing path used when the predicate returns false.</param>
+    /// <param name="cancellationToken">Cancellation to observe while waiting and pass to token-aware callbacks. Cancellation propagates instead of becoming a failure result.</param>
+    /// <returns>A task returning the result of exactly one selected path, or the existing errors when the input failed.</returns>
     public Task<RailResult<TNext>> BranchAsync<TNext>(Func<T, bool> predicate,
         Func<T, CancellationToken, Task<RailResult<TNext>>> whenTrue,
         Func<T, CancellationToken, Task<RailResult<TNext>>> whenFalse,
@@ -221,6 +324,12 @@ public sealed partial class RailResult<T>
     }
 
     /// <summary>Awaits a predicate and executes exactly one asynchronous path on success.</summary>
+    /// <typeparam name="TNext">The next payload or item type.</typeparam>
+    /// <param name="predicate">Selects whenTrue or whenFalse for a successful value; failed inputs skip branching.</param>
+    /// <param name="whenTrue">The result-producing path used when the predicate returns true.</param>
+    /// <param name="whenFalse">The result-producing path used when the predicate returns false.</param>
+    /// <param name="cancellationToken">Cancellation to observe while waiting and pass to token-aware callbacks. Cancellation propagates instead of becoming a failure result.</param>
+    /// <returns>A task returning the result of exactly one selected path, or the existing errors when the input failed.</returns>
     public Task<RailResult<TNext>> BranchAsync<TNext>(Func<T, CancellationToken, Task<bool>> predicate,
         Func<T, CancellationToken, Task<RailResult<TNext>>> whenTrue,
         Func<T, CancellationToken, Task<RailResult<TNext>>> whenFalse,
@@ -234,6 +343,11 @@ public sealed partial class RailResult<T>
             : await whenFalse(value, ct).ConfigureAwait(false), cancellationToken);
     }
 
+    /// <summary>Transforms a successful value asynchronously; failures skip the selector. Captures callback exceptions except cancellation.</summary>
+    /// <typeparam name="TNext">The next payload or item type.</typeparam>
+    /// <param name="selector">Transforms a successful value into the next payload.</param>
+    /// <param name="cancellationToken">Cancellation to observe while waiting and pass to token-aware callbacks. Cancellation propagates instead of becoming a failure result.</param>
+    /// <returns>A task returning a result with the transformed payload, or the existing errors when the input failed.</returns>
     public async Task<RailResult<TNext>> SelectAsync<TNext>(
         Func<T, CancellationToken, Task<TNext>> selector, CancellationToken cancellationToken = default)
     {
@@ -245,6 +359,11 @@ public sealed partial class RailResult<T>
         { return RailResult<TNext>.Failed(exception); }
     }
 
+    /// <summary>Chains an asynchronous result-returning operation on success; failures skip it. Captures callback exceptions except cancellation.</summary>
+    /// <typeparam name="TNext">The next payload or item type.</typeparam>
+    /// <param name="operation">The operation to invoke; must not return a null result object.</param>
+    /// <param name="cancellationToken">Cancellation to observe while waiting and pass to token-aware callbacks. Cancellation propagates instead of becoming a failure result.</param>
+    /// <returns>A task returning the callback result on success, or the existing errors when the input failed.</returns>
     public async Task<RailResult<TNext>> ThenAsync<TNext>(
         Func<T, CancellationToken, Task<RailResult<TNext>>> operation, CancellationToken cancellationToken = default)
     {
@@ -261,6 +380,8 @@ public sealed partial class RailResult<T>
     }
 
     /// <summary>Observes success. Observer exceptions propagate to the caller.</summary>
+    /// <param name="action">The callback for the matching outcome; skipped for the other outcome.</param>
+    /// <returns>The unchanged outcome after observing success. Observer exceptions propagate.</returns>
     public RailResult<T> OnSuccess(Action<T> action)
     {
         ArgumentNullException.ThrowIfNull(action);
@@ -269,6 +390,8 @@ public sealed partial class RailResult<T>
     }
 
     /// <summary>Observes failure. Observer exceptions propagate to the caller.</summary>
+    /// <param name="action">The callback for the matching outcome; skipped for the other outcome.</param>
+    /// <returns>The unchanged outcome after observing failure. Observer exceptions propagate.</returns>
     public RailResult<T> OnFailure(Action<IReadOnlyList<RailError>> action)
     {
         ArgumentNullException.ThrowIfNull(action);
@@ -277,6 +400,9 @@ public sealed partial class RailResult<T>
     }
 
     /// <summary>Awaits a success observer and returns this result. Observer exceptions propagate.</summary>
+    /// <param name="action">The callback for the matching outcome; skipped for the other outcome.</param>
+    /// <param name="cancellationToken">Cancellation to observe while waiting and pass to token-aware callbacks. Cancellation propagates instead of becoming a failure result.</param>
+    /// <returns>A task returning the unchanged outcome after observing success. Observer exceptions propagate.</returns>
     public async Task<RailResult<T>> OnSuccessAsync(Func<T, CancellationToken, Task> action,
         CancellationToken cancellationToken = default)
     {
@@ -287,6 +413,9 @@ public sealed partial class RailResult<T>
     }
 
     /// <summary>Awaits a failure observer and returns this result. Observer exceptions propagate.</summary>
+    /// <param name="action">The callback for the matching outcome; skipped for the other outcome.</param>
+    /// <param name="cancellationToken">Cancellation to observe while waiting and pass to token-aware callbacks. Cancellation propagates instead of becoming a failure result.</param>
+    /// <returns>A task returning the unchanged outcome after observing failure. Observer exceptions propagate.</returns>
     public async Task<RailResult<T>> OnFailureAsync(Func<IReadOnlyList<RailError>, CancellationToken, Task> action,
         CancellationToken cancellationToken = default)
     {
@@ -297,6 +426,11 @@ public sealed partial class RailResult<T>
     }
 
     /// <summary>Awaits exactly one outcome handler. Handler exceptions propagate.</summary>
+    /// <typeparam name="TOutput">The value returned by either outcome callback.</typeparam>
+    /// <param name="passed">The callback used only when the result is successful.</param>
+    /// <param name="failed">The callback used only when the result has failed.</param>
+    /// <param name="cancellationToken">Cancellation to observe while waiting and pass to token-aware callbacks. Cancellation propagates instead of becoming a failure result.</param>
+    /// <returns>A task returning the value produced by the callback matching the outcome. Callback exceptions propagate.</returns>
     public async Task<TOutput> MatchAsync<TOutput>(Func<T, CancellationToken, Task<TOutput>> passed,
         Func<IReadOnlyList<RailError>, CancellationToken, Task<TOutput>> failed,
         CancellationToken cancellationToken = default)
@@ -310,6 +444,10 @@ public sealed partial class RailResult<T>
     }
 
     /// <summary>Handles exactly one outcome. Handler exceptions propagate to the caller.</summary>
+    /// <typeparam name="TOutput">The value returned by either outcome callback.</typeparam>
+    /// <param name="passed">The callback used only when the result is successful.</param>
+    /// <param name="failed">The callback used only when the result has failed.</param>
+    /// <returns>The value produced by the callback matching the outcome. Callback exceptions propagate.</returns>
     public TOutput Match<TOutput>(Func<T, TOutput> passed, Func<IReadOnlyList<RailError>, TOutput> failed)
     {
         ArgumentNullException.ThrowIfNull(passed);

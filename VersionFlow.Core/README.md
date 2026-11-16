@@ -248,6 +248,8 @@ Versioned contracts must be non-generic. Inherited methods from closed generic i
 
 ## Troubleshooting
 
+Published packages include XML documentation for editor tooltips and parameter help; no symbols package is required. If summaries are missing, update to a package built with XML documentation and confirm `VersionFlow.Core.xml` is present beside the referenced DLL.
+
 | Symptom | Check |
 | --- | --- |
 | No generated contract or catalog is found | Install Core in the startup project and declaring libraries, rebuild, and check the discovery root when using a shared startup helper. |

@@ -14,7 +14,9 @@ public abstract class ResultOutcome
         Exception = exception;
     }
 
+    /// <summary>Whether the operation succeeded. Check before using the payload or page metadata.</summary>
     public bool Success { get; }
+    /// <summary>The caller-safe failure message, or null on success.</summary>
     public string? Message { get; }
 
     /// <summary>Diagnostic information for logging; never serialized by System.Text.Json.</summary>

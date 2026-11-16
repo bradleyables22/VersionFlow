@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Version>1.0.5</Version>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <Version>1.1.0</Version>
     <TargetFramework>net10.0</TargetFramework>
     <AssemblyName>VersionFlow.Extensions.Railway</AssemblyName>
     <RootNamespace>VersionFlow.Extensions.Railway</RootNamespace>

@@ -5,27 +5,40 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace VersionFlow.Extensions.DI;
 
+/// <summary>Scans selected assemblies and registers Service-attributed classes with native DI lifetimes.</summary>
 public static class AttributedServiceCollectionExtensions
 {
     private const string ScanWarning = "Assembly scanning requires preserving attributed classes, their attributes, interfaces, and public constructors when trimming.";
 
     /// <summary>Scans the immediate calling assembly for ServiceAttribute and derived attributes.</summary>
+    /// <param name="services">The service collection to update.</param>
+    /// <returns>The same service collection. Identical bindings are reused; conflicting bindings throw InvalidOperationException.</returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     [RequiresUnreferencedCode(ScanWarning)]
     public static IServiceCollection AddAttributedServices(this IServiceCollection services) =>
         AddAttributedServices(services, Assembly.GetCallingAssembly());
 
     /// <summary>Scans only the supplied assemblies. Concrete registrations are always included.</summary>
+    /// <param name="services">The service collection to update.</param>
+    /// <param name="assemblies">The nonempty set of assemblies to scan. Referenced assemblies are not scanned automatically.</param>
+    /// <returns>The same service collection. Identical bindings are reused; conflicting bindings throw InvalidOperationException.</returns>
     [RequiresUnreferencedCode(ScanWarning)]
     public static IServiceCollection AddAttributedServices(this IServiceCollection services, params Assembly[] assemblies) =>
         AddAttributedServices<ServiceAttribute>(services, assemblies);
 
     /// <summary>Scans an assembly identified by a marker type.</summary>
+    /// <typeparam name="TMarker">A type in the assembly to scan.</typeparam>
+    /// <param name="services">The service collection to update.</param>
+    /// <returns>The same service collection after scanning the marker type's assembly.</returns>
     [RequiresUnreferencedCode(ScanWarning)]
     public static IServiceCollection AddAttributedServicesFromAssemblyContaining<TMarker>(this IServiceCollection services) =>
         AddAttributedServices(services, typeof(TMarker).Assembly);
 
     /// <summary>Registers only classes marked by the specified ServiceAttribute subtype.</summary>
+    /// <typeparam name="TAttribute">The ServiceAttribute subtype used to select classes.</typeparam>
+    /// <param name="services">The service collection to update.</param>
+    /// <param name="assemblies">The nonempty set of assemblies to scan. Referenced assemblies are not scanned automatically.</param>
+    /// <returns>The same service collection. Identical bindings are reused; conflicting bindings throw InvalidOperationException.</returns>
     [RequiresUnreferencedCode(ScanWarning)]
     public static IServiceCollection AddAttributedServices<TAttribute>(this IServiceCollection services, params Assembly[] assemblies)
         where TAttribute : ServiceAttribute

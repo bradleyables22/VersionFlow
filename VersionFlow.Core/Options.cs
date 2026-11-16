@@ -5,22 +5,33 @@ using Microsoft.Extensions.Primitives;
 
 namespace VersionFlow;
 
+/// <summary>Version and flag settings. Bind the VersionFlow configuration section or configure through AddVersionFlow.</summary>
 public sealed class VersionFlowOptions
 {
+    /// <summary>The fallback choice for all operations: Latest (the default) or a positive integer string.</summary>
     public string Default { get; set; } = "Latest";
+    /// <summary>Case-sensitive class and method overrides, applied before the global default.</summary>
     public VersionFlowOverrides Overrides { get; set; } = new();
     /// <summary>Named boolean gates, matched using case-sensitive ordinal names.</summary>
     public Dictionary<string, bool> Flags { get; set; } = new(StringComparer.Ordinal);
+    /// <summary>Whether generic/web host startup validates settings and registrations; defaults to true.</summary>
+    /// <remarks>False defers VersionFlow validation until use. Explicit options-builder ValidateOnStart still applies.</remarks>
     public bool ValidateOnStart { get; set; } = true;
+    /// <summary>Must be Throw. Unavailable versions never silently fall back.</summary>
     public string MissingVersionBehavior { get; set; } = "Throw";
 }
+/// <summary>Groups per-contract settings beneath Overrides.Classes.</summary>
 public sealed class VersionFlowOverrides
 {
+    /// <summary>Overrides indexed by the exact Versioned key, or the group portion of a fluent operation name.</summary>
     public Dictionary<string, VersionFlowClassOverride> Classes { get; set; } = new(StringComparer.Ordinal);
 }
+/// <summary>Configures a class family or operations host, with optional per-method choices.</summary>
 public sealed class VersionFlowClassOverride
 {
+    /// <summary>The class choice (Latest or a positive integer string); null inherits the global default.</summary>
     public string? Version { get; set; }
+    /// <summary>Choices indexed by short, case-sensitive method names. These override the class choice.</summary>
     public Dictionary<string, string> Methods { get; set; } = new(StringComparer.Ordinal);
 }
 internal sealed record ConfigurationSnapshot(long Identity, VersionChoice Default,
@@ -113,11 +124,17 @@ internal sealed class SnapshotStore : IDisposable
     }
     public void Dispose() { foreach (var subscription in subscriptions) subscription.Dispose(); }
 }
+/// <summary>Selection infrastructure for generated dispatchers. Application code normally uses IVersionFlow.</summary>
 public sealed class VersionFlowSelector
 {
     private readonly SnapshotStore store;
     private readonly VersionFlowCatalog catalog;
     internal VersionFlowSelector(SnapshotStore store, VersionFlowCatalog catalog) { this.store = store; this.catalog = catalog; }
+    /// <summary>Selects from generated catalog versions using one current configuration snapshot.</summary>
+    /// <param name="key">The case-sensitive contract key.</param>
+    /// <param name="method">The short method name; required for operations hosts.</param>
+    /// <param name="choice">An explicit choice that overrides configuration, or null to follow configuration.</param>
+    /// <returns>The selected version and its source.</returns>
     public VersionSelection Select(string key, string? method = null, VersionChoice? choice = null)
     {
         if (!catalog.Contracts.TryGetValue(key, out var contract)) throw new VersionFlowSelectionException($"Unknown catalog key '{key}'.");

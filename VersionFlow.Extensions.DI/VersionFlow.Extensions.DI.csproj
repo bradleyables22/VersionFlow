@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Version>1.0.1</Version>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <Version>1.1.0</Version>
     <TargetFramework>net10.0</TargetFramework>
     <Description>Attribute-based Microsoft DI registration with native ServiceLifetime support.</Description>
   </PropertyGroup>

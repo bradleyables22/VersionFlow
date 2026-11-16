@@ -8,14 +8,25 @@ using Microsoft.Extensions.Options;
 
 namespace VersionFlow;
 
+/// <summary>Registers VersionFlow runtime, options, and generated dispatchers with Microsoft DI.</summary>
 public static class VersionFlowServiceCollectionExtensions
 {
+    /// <summary>Manually links a generated catalog. Normal applications use automatic discovery through AddVersionFlow.</summary>
+    /// <typeparam name="T">The generated catalog type with a public parameterless constructor.</typeparam>
+    /// <param name="services">The application service collection.</param>
+    /// <returns>The same collection for chaining.</returns>
+    /// <remarks>Explicit catalogs define discovery scope; link all required catalogs when using this advanced path.</remarks>
     public static IServiceCollection AddVersionFlowCatalog<T>(this IServiceCollection services) where T : class, IVersionFlowCatalog, new()
     {
         if (!services.Any(d => d.ServiceType == typeof(IVersionFlowCatalog) && d.ImplementationInstance is T))
             services.AddSingleton<IVersionFlowCatalog>(new T());
         return services;
     }
+    /// <summary>Declares a fluent-only operation name so configuration and For can recognize it.</summary>
+    /// <param name="services">The application service collection.</param>
+    /// <param name="operationKey">A case-sensitive qualified name such as Orders.Process.</param>
+    /// <returns>The same collection for chaining.</returns>
+    /// <remarks>This registers no versions or implementation services. Generated operation names need no declaration.</remarks>
     public static IServiceCollection AddVersionFlowOperation(this IServiceCollection services, string operationKey)
     {
         ConfigurationParser.Split(operationKey);
@@ -23,6 +34,13 @@ public static class VersionFlowServiceCollectionExtensions
             services.AddSingleton(new FluentOperationDeclaration(operationKey));
         return services;
     }
+    /// <summary>Installs VersionFlow and binds the supplied configuration section.</summary>
+    /// <param name="services">The application service collection.</param>
+    /// <param name="section">The VersionFlow section, for example configuration.GetSection("VersionFlow"). Reload-capable providers update later calls.</param>
+    /// <param name="autoRegister">True discovers catalogs and registers scoped dispatchers; false leaves catalog and facade registration to the caller.</param>
+    /// <param name="assembly">The discovery root; null uses the immediate calling assembly. Supply the application assembly from shared startup helpers.</param>
+    /// <returns>The same collection for chaining.</returns>
+    /// <remarks>Register all concrete implementation versions and their dependencies separately. Dispatchers and IVersionFlow are scoped; do not inject them into singletons.</remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static IServiceCollection AddVersionFlow(this IServiceCollection services, IConfiguration section,
         bool autoRegister = true, Assembly? assembly = null)
@@ -32,6 +50,13 @@ public static class VersionFlowServiceCollectionExtensions
         if (autoRegister) AutoRegister(services, assembly ?? Assembly.GetCallingAssembly());
         return services;
     }
+    /// <summary>Installs VersionFlow and applies the supplied options delegate.</summary>
+    /// <param name="services">The application service collection.</param>
+    /// <param name="configure">Sets defaults, overrides, flags, or startup validation. Keep this delegate deterministic.</param>
+    /// <param name="autoRegister">True discovers catalogs and registers scoped dispatchers; false leaves catalog and facade registration to the caller.</param>
+    /// <param name="assembly">The discovery root; null uses the immediate calling assembly. Supply the application assembly from shared startup helpers.</param>
+    /// <returns>The same collection for chaining.</returns>
+    /// <remarks>Register all concrete implementation versions and their dependencies separately. Dispatchers and IVersionFlow are scoped; do not inject them into singletons.</remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static IServiceCollection AddVersionFlow(this IServiceCollection services, Action<VersionFlowOptions> configure,
         bool autoRegister = true, Assembly? assembly = null)
@@ -41,6 +66,12 @@ public static class VersionFlowServiceCollectionExtensions
         if (autoRegister) AutoRegister(services, assembly ?? Assembly.GetCallingAssembly());
         return services;
     }
+    /// <summary>Installs VersionFlow with Latest defaults; does not bind configuration automatically.</summary>
+    /// <param name="services">The application service collection.</param>
+    /// <param name="autoRegister">True discovers catalogs and registers scoped dispatchers; false leaves catalog and facade registration to the caller.</param>
+    /// <param name="assembly">The discovery root; null uses the immediate calling assembly. Supply the application assembly from shared startup helpers.</param>
+    /// <returns>The same collection for chaining.</returns>
+    /// <remarks>Register all concrete implementation versions and their dependencies separately. Dispatchers and IVersionFlow are scoped; do not inject them into singletons.</remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static IServiceCollection AddVersionFlow(this IServiceCollection services,
         bool autoRegister = true, Assembly? assembly = null)
@@ -49,6 +80,12 @@ public static class VersionFlowServiceCollectionExtensions
         if (autoRegister) AutoRegister(services, assembly ?? Assembly.GetCallingAssembly());
         return services;
     }
+    /// <summary>Installs runtime options and automatic catalog/dispatcher registration; bind or configure the returned options builder.</summary>
+    /// <param name="services">The application service collection.</param>
+    /// <param name="autoRegister">True discovers catalogs and registers scoped dispatchers; false leaves catalog and facade registration to the caller.</param>
+    /// <param name="assembly">The discovery root; null uses the immediate calling assembly. Supply the application assembly from shared startup helpers.</param>
+    /// <returns>An options builder for binding, configuration, and validation.</returns>
+    /// <remarks>Register all concrete implementation versions and their dependencies separately. Dispatchers and IVersionFlow are scoped; do not inject them into singletons.</remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static OptionsBuilder<VersionFlowOptions> AddVersionFlowOptions(this IServiceCollection services,
         bool autoRegister = true, Assembly? assembly = null)
@@ -58,14 +95,28 @@ public static class VersionFlowServiceCollectionExtensions
         return options;
     }
     // Preserve the original method signatures for already-compiled consumers.
+    /// <summary>Installs VersionFlow and binds the supplied configuration section.</summary>
+    /// <param name="services">The application service collection.</param>
+    /// <param name="section">The VersionFlow section, for example configuration.GetSection("VersionFlow"). Reload-capable providers update later calls.</param>
+    /// <returns>The same collection for chaining.</returns>
+    /// <remarks>Register all concrete implementation versions and their dependencies separately. Dispatchers and IVersionFlow are scoped; do not inject them into singletons.</remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static IServiceCollection AddVersionFlow(this IServiceCollection services, IConfiguration section) =>
         AddVersionFlow(services, section, autoRegister: true, assembly: Assembly.GetCallingAssembly());
 
+    /// <summary>Installs VersionFlow and applies the supplied options delegate.</summary>
+    /// <param name="services">The application service collection.</param>
+    /// <param name="configure">Sets defaults, overrides, flags, or startup validation. Keep this delegate deterministic.</param>
+    /// <returns>The same collection for chaining.</returns>
+    /// <remarks>Register all concrete implementation versions and their dependencies separately. Dispatchers and IVersionFlow are scoped; do not inject them into singletons.</remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static IServiceCollection AddVersionFlow(this IServiceCollection services, Action<VersionFlowOptions> configure) =>
         AddVersionFlow(services, configure, autoRegister: true, assembly: Assembly.GetCallingAssembly());
 
+    /// <summary>Installs runtime options and automatic catalog/dispatcher registration; bind or configure the returned options builder.</summary>
+    /// <param name="services">The application service collection.</param>
+    /// <returns>An options builder for binding, configuration, and validation.</returns>
+    /// <remarks>Register all concrete implementation versions and their dependencies separately. Dispatchers and IVersionFlow are scoped; do not inject them into singletons.</remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static OptionsBuilder<VersionFlowOptions> AddVersionFlowOptions(this IServiceCollection services) =>
         AddVersionFlowOptions(services, autoRegister: true, assembly: Assembly.GetCallingAssembly());
@@ -110,6 +161,11 @@ public static class VersionFlowServiceCollectionExtensions
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, VersionFlowStartupValidation>());
         return services.AddOptions<VersionFlowOptions>();
     }
+    /// <summary>Registers scoped interface facades from manually linked catalogs.</summary>
+    /// <param name="services">The collection containing catalogs registered with AddVersionFlowCatalog.</param>
+    /// <returns>The same collection for chaining.</returns>
+    /// <exception cref="VersionFlowRegistrationException">A contract already has a conflicting unkeyed registration.</exception>
+    /// <remarks>Automatic AddVersionFlow setup already performs this step. Concrete implementations still need DI registration.</remarks>
     public static IServiceCollection AddVersionFlowDispatchers(this IServiceCollection services)
     {
         AddRuntimeOptions(services);
