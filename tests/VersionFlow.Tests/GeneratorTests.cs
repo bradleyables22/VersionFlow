@@ -117,22 +117,27 @@ public sealed class GeneratorTests
         Assert.Equal("Dispose", method.Operation);
         Assert.Equal(3, method.Version);
     }
-    [Fact]
-    public void Non_generic_cqrs_wrapper_generates_inherited_handler_method()
+    [Theory]
+    [InlineData("ICqrsHandler<GetPrice, decimal>", "decimal", "Handle", "request.Quantity * 10m")]
+    [InlineData("ICqrsHandler<GetPrice>", "void", "Handle", "System.GC.KeepAlive(request)")]
+    [InlineData("ICqrsAsyncHandler<GetPrice, decimal>", "System.Threading.Tasks.Task<decimal>", "HandleAsync", "System.Threading.Tasks.Task.FromResult(request.Quantity * 10m)")]
+    [InlineData("ICqrsAsyncHandler<GetPrice>", "System.Threading.Tasks.Task", "HandleAsync", "System.Threading.Tasks.Task.CompletedTask")]
+    public void Non_generic_cqrs_wrapper_generates_inherited_handler_method(
+        string contract, string returnType, string method, string expression)
     {
-        var result = Generate("""
+        var result = Generate($$"""
             public sealed record GetPrice(int Quantity);
-            public interface IGetPriceHandler : global::VersionFlow.Extensions.Cqrs.ICqrsHandler<GetPrice, decimal> { }
+            public interface IGetPriceHandler : global::VersionFlow.Extensions.Cqrs.{{contract}} { }
             [Versioned(typeof(IGetPriceHandler), 1, Key = "Pricing")]
             public sealed class GetPriceV1 : IGetPriceHandler
             {
-                public System.Threading.Tasks.Task<decimal> HandleAsync(GetPrice request, System.Threading.CancellationToken ct = default)
-                    => System.Threading.Tasks.Task.FromResult(request.Quantity * 10m);
+                public {{returnType}} {{method}}(GetPrice request, System.Threading.CancellationToken ct = default)
+                    => {{expression}};
             }
             """);
         Assert.Empty(result.Run.Diagnostics);
         Assert.Empty(result.Compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
-        Assert.Contains("HandleAsync", result.Run.GeneratedTrees.Single().ToString());
+        Assert.Contains(method, result.Run.GeneratedTrees.Single().ToString());
     }
     [Fact] public void Independent_methods_generate_compilable_typed_calls()
     {

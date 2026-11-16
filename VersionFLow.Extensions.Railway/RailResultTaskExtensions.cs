@@ -2,7 +2,7 @@ namespace VersionFlow.Extensions.Railway;
 
 /// <summary>Composes synchronous and asynchronous steps after a Task of a railway result.</summary>
 /// <remarks>Upstream task faults propagate. Cancellation stops waiting but does not cancel upstream work.</remarks>
-public static class RailResultTaskExtensions
+public static partial class RailResultTaskExtensions
 {
     /// <summary>Awaits the source and delegates to Ensure, preserving its outcome semantics.</summary>
     /// <typeparam name="T">The payload or item type.</typeparam>
@@ -12,8 +12,9 @@ public static class RailResultTaskExtensions
     /// <param name="recover">An optional correction applied once when validation fails; the corrected value is checked again.</param>
     /// <param name="code">The validation error code; null uses RailErrorCodes.ValidationFailed.</param>
     /// <returns>A task returning the validated or successfully corrected result; otherwise a failure. Existing failures are unchanged.</returns>
+    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
     public static async Task<RailResult<T>> Ensure<T>(this Task<RailResult<T>> source,
-        Func<T, bool> predicate, string message = "Validation failed.", Func<T, T>? recover = null, RailErrorCode? code = null)
+        Func<T, bool> predicate, string message, Func<T, T>? recover, RailErrorCode? code)
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(predicate);
@@ -29,8 +30,9 @@ public static class RailResultTaskExtensions
     /// <param name="error">The structured error to return if validation fails.</param>
     /// <param name="recover">An optional correction applied once when validation fails; the corrected value is checked again.</param>
     /// <returns>A task returning the validated or successfully corrected result; otherwise a failure. Existing failures are unchanged.</returns>
+    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
     public static async Task<RailResult<T>> Ensure<T>(this Task<RailResult<T>> source,
-        Func<T, bool> predicate, RailError error, Func<T, T>? recover = null)
+        Func<T, bool> predicate, RailError error, Func<T, T>? recover)
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(predicate);
@@ -48,8 +50,9 @@ public static class RailResultTaskExtensions
     /// <param name="code">The validation error code; null uses RailErrorCodes.ValidationFailed.</param>
     /// <param name="cancellationToken">Cancellation to observe while waiting and pass to token-aware callbacks. Cancellation propagates instead of becoming a failure result.</param>
     /// <returns>A task returning the validated or successfully corrected result; otherwise a failure. Existing failures are unchanged.</returns>
+    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
     public static async Task<RailResult<T>> EnsureAsync<T>(this Task<RailResult<T>> source,
-        Func<T, CancellationToken, Task<bool>> predicate, string message = "Validation failed.", Func<T, CancellationToken, Task<T>>? recover = null, RailErrorCode? code = null, CancellationToken cancellationToken = default)
+        Func<T, CancellationToken, Task<bool>> predicate, string message, Func<T, CancellationToken, Task<T>>? recover, RailErrorCode? code, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(predicate);
@@ -66,8 +69,9 @@ public static class RailResultTaskExtensions
     /// <param name="recover">An optional correction applied once when validation fails; the corrected value is checked again.</param>
     /// <param name="cancellationToken">Cancellation to observe while waiting and pass to token-aware callbacks. Cancellation propagates instead of becoming a failure result.</param>
     /// <returns>A task returning the validated or successfully corrected result; otherwise a failure. Existing failures are unchanged.</returns>
+    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
     public static async Task<RailResult<T>> EnsureAsync<T>(this Task<RailResult<T>> source,
-        Func<T, CancellationToken, Task<bool>> predicate, RailError error, Func<T, CancellationToken, Task<T>>? recover = null, CancellationToken cancellationToken = default)
+        Func<T, CancellationToken, Task<bool>> predicate, RailError error, Func<T, CancellationToken, Task<T>>? recover, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(predicate);
@@ -84,8 +88,9 @@ public static class RailResultTaskExtensions
     /// <param name="recover">An optional correction applied once when validation fails; the corrected value is checked again.</param>
     /// <param name="code">The validation error code; null uses RailErrorCodes.ValidationFailed.</param>
     /// <returns>A task returning the validated or successfully corrected result; otherwise a failure. Existing failures are unchanged.</returns>
+    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
     public static async Task<RailResult<T>> EnsureTrue<T>(this Task<RailResult<T>> source,
-        Func<T, bool> predicate, string message = "Validation failed.", Func<T, T>? recover = null, RailErrorCode? code = null)
+        Func<T, bool> predicate, string message, Func<T, T>? recover, RailErrorCode? code)
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(predicate);
@@ -101,8 +106,9 @@ public static class RailResultTaskExtensions
     /// <param name="error">The structured error to return if validation fails.</param>
     /// <param name="recover">An optional correction applied once when validation fails; the corrected value is checked again.</param>
     /// <returns>A task returning the validated or successfully corrected result; otherwise a failure. Existing failures are unchanged.</returns>
+    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
     public static async Task<RailResult<T>> EnsureTrue<T>(this Task<RailResult<T>> source,
-        Func<T, bool> predicate, RailError error, Func<T, T>? recover = null)
+        Func<T, bool> predicate, RailError error, Func<T, T>? recover)
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(predicate);
@@ -120,8 +126,9 @@ public static class RailResultTaskExtensions
     /// <param name="code">The validation error code; null uses RailErrorCodes.ValidationFailed.</param>
     /// <param name="cancellationToken">Cancellation to observe while waiting and pass to token-aware callbacks. Cancellation propagates instead of becoming a failure result.</param>
     /// <returns>A task returning the validated or successfully corrected result; otherwise a failure. Existing failures are unchanged.</returns>
+    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
     public static async Task<RailResult<T>> EnsureTrueAsync<T>(this Task<RailResult<T>> source,
-        Func<T, CancellationToken, Task<bool>> predicate, string message = "Validation failed.", Func<T, CancellationToken, Task<T>>? recover = null, RailErrorCode? code = null, CancellationToken cancellationToken = default)
+        Func<T, CancellationToken, Task<bool>> predicate, string message, Func<T, CancellationToken, Task<T>>? recover, RailErrorCode? code, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(predicate);
@@ -138,8 +145,9 @@ public static class RailResultTaskExtensions
     /// <param name="recover">An optional correction applied once when validation fails; the corrected value is checked again.</param>
     /// <param name="cancellationToken">Cancellation to observe while waiting and pass to token-aware callbacks. Cancellation propagates instead of becoming a failure result.</param>
     /// <returns>A task returning the validated or successfully corrected result; otherwise a failure. Existing failures are unchanged.</returns>
+    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
     public static async Task<RailResult<T>> EnsureTrueAsync<T>(this Task<RailResult<T>> source,
-        Func<T, CancellationToken, Task<bool>> predicate, RailError error, Func<T, CancellationToken, Task<T>>? recover = null, CancellationToken cancellationToken = default)
+        Func<T, CancellationToken, Task<bool>> predicate, RailError error, Func<T, CancellationToken, Task<T>>? recover, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(predicate);
@@ -156,8 +164,9 @@ public static class RailResultTaskExtensions
     /// <param name="recover">An optional correction applied once when validation fails; the corrected value is checked again.</param>
     /// <param name="code">The validation error code; null uses RailErrorCodes.ValidationFailed.</param>
     /// <returns>A task returning the validated or successfully corrected result; otherwise a failure. Existing failures are unchanged.</returns>
+    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
     public static async Task<RailResult<T>> EnsureFalse<T>(this Task<RailResult<T>> source,
-        Func<T, bool> predicate, string message = "Validation failed.", Func<T, T>? recover = null, RailErrorCode? code = null)
+        Func<T, bool> predicate, string message, Func<T, T>? recover, RailErrorCode? code)
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(predicate);
@@ -173,8 +182,9 @@ public static class RailResultTaskExtensions
     /// <param name="error">The structured error to return if validation fails.</param>
     /// <param name="recover">An optional correction applied once when validation fails; the corrected value is checked again.</param>
     /// <returns>A task returning the validated or successfully corrected result; otherwise a failure. Existing failures are unchanged.</returns>
+    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
     public static async Task<RailResult<T>> EnsureFalse<T>(this Task<RailResult<T>> source,
-        Func<T, bool> predicate, RailError error, Func<T, T>? recover = null)
+        Func<T, bool> predicate, RailError error, Func<T, T>? recover)
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(predicate);
@@ -192,8 +202,9 @@ public static class RailResultTaskExtensions
     /// <param name="code">The validation error code; null uses RailErrorCodes.ValidationFailed.</param>
     /// <param name="cancellationToken">Cancellation to observe while waiting and pass to token-aware callbacks. Cancellation propagates instead of becoming a failure result.</param>
     /// <returns>A task returning the validated or successfully corrected result; otherwise a failure. Existing failures are unchanged.</returns>
+    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
     public static async Task<RailResult<T>> EnsureFalseAsync<T>(this Task<RailResult<T>> source,
-        Func<T, CancellationToken, Task<bool>> predicate, string message = "Validation failed.", Func<T, CancellationToken, Task<T>>? recover = null, RailErrorCode? code = null, CancellationToken cancellationToken = default)
+        Func<T, CancellationToken, Task<bool>> predicate, string message, Func<T, CancellationToken, Task<T>>? recover, RailErrorCode? code, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(predicate);
@@ -210,8 +221,9 @@ public static class RailResultTaskExtensions
     /// <param name="recover">An optional correction applied once when validation fails; the corrected value is checked again.</param>
     /// <param name="cancellationToken">Cancellation to observe while waiting and pass to token-aware callbacks. Cancellation propagates instead of becoming a failure result.</param>
     /// <returns>A task returning the validated or successfully corrected result; otherwise a failure. Existing failures are unchanged.</returns>
+    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
     public static async Task<RailResult<T>> EnsureFalseAsync<T>(this Task<RailResult<T>> source,
-        Func<T, CancellationToken, Task<bool>> predicate, RailError error, Func<T, CancellationToken, Task<T>>? recover = null, CancellationToken cancellationToken = default)
+        Func<T, CancellationToken, Task<bool>> predicate, RailError error, Func<T, CancellationToken, Task<T>>? recover, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(predicate);

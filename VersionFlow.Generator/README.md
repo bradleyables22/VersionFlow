@@ -34,7 +34,7 @@ AddVersionFlow starts from the calling assembly; shared helpers can specify its 
 
 ## CQRS and generics
 
-The Versioned contract must be non-generic, even if generic arguments are closed. Define `public interface IGetPriceHandler : ICqrsHandler<GetPrice, decimal> { }` and use Versioned(typeof(IGetPriceHandler), 1). The inherited HandleAsync method is supported. Passing typeof(ICqrsHandler<GetPrice, decimal>) directly is unsupported.
+The Versioned contract must be non-generic, even if generic arguments are closed. Define `public interface IGetPriceHandler : ICqrsAsyncHandler<GetPrice, decimal> { }` and use Versioned(typeof(IGetPriceHandler), 1). The inherited HandleAsync method is supported. Passing typeof(ICqrsAsyncHandler<GetPrice, decimal>) directly is unsupported. Synchronous `ICqrsHandler` wrappers work the same way through their inherited `Handle` method. Both handler families support response-bearing and no-response contracts.
 
 ## Diagnostics
 

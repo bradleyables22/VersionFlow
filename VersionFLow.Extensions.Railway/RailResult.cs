@@ -85,8 +85,9 @@ public sealed partial class RailResult<T>
     /// <param name="recover">An optional correction applied once when validation fails; the corrected value is checked again.</param>
     /// <param name="code">The validation error code; null uses RailErrorCodes.ValidationFailed.</param>
     /// <returns>The validated or successfully corrected result; otherwise a failure. Existing failures are unchanged.</returns>
-    public RailResult<T> Ensure(Func<T, bool> predicate, string message = "Validation failed.",
-        Func<T, T>? recover = null, RailErrorCode? code = null) =>
+    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
+    public RailResult<T> Ensure(Func<T, bool> predicate, string message,
+        Func<T, T>? recover, RailErrorCode? code) =>
         EnsureTrue(predicate, message, recover, code);
 
     /// <summary>Compatibility alias for EnsureTrue; the predicate must return true to pass.</summary>
@@ -94,7 +95,8 @@ public sealed partial class RailResult<T>
     /// <param name="error">The structured error to return if validation fails.</param>
     /// <param name="recover">An optional correction applied once when validation fails; the corrected value is checked again.</param>
     /// <returns>The validated or successfully corrected result; otherwise a failure. Existing failures are unchanged.</returns>
-    public RailResult<T> Ensure(Func<T, bool> predicate, RailError error, Func<T, T>? recover = null)
+    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
+    public RailResult<T> Ensure(Func<T, bool> predicate, RailError error, Func<T, T>? recover)
         => EnsureTrue(predicate, error, recover);
 
     /// <summary>Requires true, optionally correcting the value once and rechecking for true.</summary>
@@ -103,8 +105,9 @@ public sealed partial class RailResult<T>
     /// <param name="recover">An optional correction applied once when validation fails; the corrected value is checked again.</param>
     /// <param name="code">The validation error code; null uses RailErrorCodes.ValidationFailed.</param>
     /// <returns>The validated or successfully corrected result; otherwise a failure. Existing failures are unchanged.</returns>
-    public RailResult<T> EnsureTrue(Func<T, bool> predicate, string message = "Validation failed.",
-        Func<T, T>? recover = null, RailErrorCode? code = null) =>
+    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
+    public RailResult<T> EnsureTrue(Func<T, bool> predicate, string message,
+        Func<T, T>? recover, RailErrorCode? code) =>
         EnsureTrue(predicate, new RailError(message, code ?? RailErrorCodes.ValidationFailed), recover);
 
     /// <summary>Requires true, optionally correcting the value once and rechecking for true.</summary>
@@ -112,7 +115,8 @@ public sealed partial class RailResult<T>
     /// <param name="error">The structured error to return if validation fails.</param>
     /// <param name="recover">An optional correction applied once when validation fails; the corrected value is checked again.</param>
     /// <returns>The validated or successfully corrected result; otherwise a failure. Existing failures are unchanged.</returns>
-    public RailResult<T> EnsureTrue(Func<T, bool> predicate, RailError error, Func<T, T>? recover = null)
+    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
+    public RailResult<T> EnsureTrue(Func<T, bool> predicate, RailError error, Func<T, T>? recover)
         => EnsureCore(predicate, true, error, recover);
 
     /// <summary>Requires false, optionally correcting the value once and rechecking for false.</summary>
@@ -121,8 +125,9 @@ public sealed partial class RailResult<T>
     /// <param name="recover">An optional correction applied once when validation fails; the corrected value is checked again.</param>
     /// <param name="code">The validation error code; null uses RailErrorCodes.ValidationFailed.</param>
     /// <returns>The validated or successfully corrected result; otherwise a failure. Existing failures are unchanged.</returns>
-    public RailResult<T> EnsureFalse(Func<T, bool> predicate, string message = "Validation failed.",
-        Func<T, T>? recover = null, RailErrorCode? code = null) =>
+    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
+    public RailResult<T> EnsureFalse(Func<T, bool> predicate, string message,
+        Func<T, T>? recover, RailErrorCode? code) =>
         EnsureFalse(predicate, new RailError(message, code ?? RailErrorCodes.ValidationFailed), recover);
 
     /// <summary>Requires false, optionally correcting the value once and rechecking for false.</summary>
@@ -130,7 +135,8 @@ public sealed partial class RailResult<T>
     /// <param name="error">The structured error to return if validation fails.</param>
     /// <param name="recover">An optional correction applied once when validation fails; the corrected value is checked again.</param>
     /// <returns>The validated or successfully corrected result; otherwise a failure. Existing failures are unchanged.</returns>
-    public RailResult<T> EnsureFalse(Func<T, bool> predicate, RailError error, Func<T, T>? recover = null)
+    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
+    public RailResult<T> EnsureFalse(Func<T, bool> predicate, RailError error, Func<T, T>? recover)
         => EnsureCore(predicate, false, error, recover);
 
     /// <summary>Requires true asynchronously, optionally correcting once and rechecking.</summary>
@@ -140,9 +146,10 @@ public sealed partial class RailResult<T>
     /// <param name="code">The validation error code; null uses RailErrorCodes.ValidationFailed.</param>
     /// <param name="cancellationToken">Cancellation to observe while waiting and pass to token-aware callbacks. Cancellation propagates instead of becoming a failure result.</param>
     /// <returns>A task returning the validated or successfully corrected result; otherwise a failure. Existing failures are unchanged.</returns>
+    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
     public Task<RailResult<T>> EnsureAsync(Func<T, CancellationToken, Task<bool>> predicate,
-        string message = "Validation failed.", Func<T, CancellationToken, Task<T>>? recover = null,
-        RailErrorCode? code = null, CancellationToken cancellationToken = default) =>
+        string message, Func<T, CancellationToken, Task<T>>? recover,
+        RailErrorCode? code, CancellationToken cancellationToken) =>
         EnsureAsync(predicate, new RailError(message, code ?? RailErrorCodes.ValidationFailed), recover, cancellationToken);
 
     /// <summary>Requires true asynchronously with a structured validation error.</summary>
@@ -151,9 +158,10 @@ public sealed partial class RailResult<T>
     /// <param name="recover">An optional correction applied once when validation fails; the corrected value is checked again.</param>
     /// <param name="cancellationToken">Cancellation to observe while waiting and pass to token-aware callbacks. Cancellation propagates instead of becoming a failure result.</param>
     /// <returns>A task returning the validated or successfully corrected result; otherwise a failure. Existing failures are unchanged.</returns>
+    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
     public Task<RailResult<T>> EnsureAsync(Func<T, CancellationToken, Task<bool>> predicate,
-        RailError error, Func<T, CancellationToken, Task<T>>? recover = null,
-        CancellationToken cancellationToken = default) =>
+        RailError error, Func<T, CancellationToken, Task<T>>? recover,
+        CancellationToken cancellationToken) =>
         EnsureCoreAsync(predicate, true, error, recover, cancellationToken);
 
     /// <summary>Requires true asynchronously, optionally correcting once and rechecking.</summary>
@@ -163,9 +171,10 @@ public sealed partial class RailResult<T>
     /// <param name="code">The validation error code; null uses RailErrorCodes.ValidationFailed.</param>
     /// <param name="cancellationToken">Cancellation to observe while waiting and pass to token-aware callbacks. Cancellation propagates instead of becoming a failure result.</param>
     /// <returns>A task returning the validated or successfully corrected result; otherwise a failure. Existing failures are unchanged.</returns>
+    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
     public Task<RailResult<T>> EnsureTrueAsync(Func<T, CancellationToken, Task<bool>> predicate,
-        string message = "Validation failed.", Func<T, CancellationToken, Task<T>>? recover = null,
-        RailErrorCode? code = null, CancellationToken cancellationToken = default) =>
+        string message, Func<T, CancellationToken, Task<T>>? recover,
+        RailErrorCode? code, CancellationToken cancellationToken) =>
         EnsureTrueAsync(predicate, new RailError(message, code ?? RailErrorCodes.ValidationFailed), recover, cancellationToken);
 
     /// <summary>Requires true asynchronously with a structured validation error.</summary>
@@ -174,9 +183,10 @@ public sealed partial class RailResult<T>
     /// <param name="recover">An optional correction applied once when validation fails; the corrected value is checked again.</param>
     /// <param name="cancellationToken">Cancellation to observe while waiting and pass to token-aware callbacks. Cancellation propagates instead of becoming a failure result.</param>
     /// <returns>A task returning the validated or successfully corrected result; otherwise a failure. Existing failures are unchanged.</returns>
+    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
     public Task<RailResult<T>> EnsureTrueAsync(Func<T, CancellationToken, Task<bool>> predicate,
-        RailError error, Func<T, CancellationToken, Task<T>>? recover = null,
-        CancellationToken cancellationToken = default) =>
+        RailError error, Func<T, CancellationToken, Task<T>>? recover,
+        CancellationToken cancellationToken) =>
         EnsureCoreAsync(predicate, true, error, recover, cancellationToken);
 
     /// <summary>Requires false asynchronously, optionally correcting once and rechecking.</summary>
@@ -186,9 +196,10 @@ public sealed partial class RailResult<T>
     /// <param name="code">The validation error code; null uses RailErrorCodes.ValidationFailed.</param>
     /// <param name="cancellationToken">Cancellation to observe while waiting and pass to token-aware callbacks. Cancellation propagates instead of becoming a failure result.</param>
     /// <returns>A task returning the validated or successfully corrected result; otherwise a failure. Existing failures are unchanged.</returns>
+    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
     public Task<RailResult<T>> EnsureFalseAsync(Func<T, CancellationToken, Task<bool>> predicate,
-        string message = "Validation failed.", Func<T, CancellationToken, Task<T>>? recover = null,
-        RailErrorCode? code = null, CancellationToken cancellationToken = default) =>
+        string message, Func<T, CancellationToken, Task<T>>? recover,
+        RailErrorCode? code, CancellationToken cancellationToken) =>
         EnsureFalseAsync(predicate, new RailError(message, code ?? RailErrorCodes.ValidationFailed), recover, cancellationToken);
 
     /// <summary>Requires false asynchronously with a structured validation error.</summary>
@@ -197,70 +208,11 @@ public sealed partial class RailResult<T>
     /// <param name="recover">An optional correction applied once when validation fails; the corrected value is checked again.</param>
     /// <param name="cancellationToken">Cancellation to observe while waiting and pass to token-aware callbacks. Cancellation propagates instead of becoming a failure result.</param>
     /// <returns>A task returning the validated or successfully corrected result; otherwise a failure. Existing failures are unchanged.</returns>
+    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
     public Task<RailResult<T>> EnsureFalseAsync(Func<T, CancellationToken, Task<bool>> predicate,
-        RailError error, Func<T, CancellationToken, Task<T>>? recover = null,
-        CancellationToken cancellationToken = default) =>
+        RailError error, Func<T, CancellationToken, Task<T>>? recover,
+        CancellationToken cancellationToken) =>
         EnsureCoreAsync(predicate, false, error, recover, cancellationToken);
-
-    private async Task<RailResult<T>> EnsureCoreAsync(Func<T, CancellationToken, Task<bool>> predicate,
-        bool expected, RailError error, Func<T, CancellationToken, Task<T>>? recover,
-        CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(predicate);
-        var failure = Failed(error);
-        cancellationToken.ThrowIfCancellationRequested();
-        if (IsFailed) return this;
-        try
-        {
-            if (await predicate(Value, cancellationToken).ConfigureAwait(false) == expected) return this;
-        }
-        catch (Exception exception) when (exception is not OperationCanceledException)
-        {
-            return Failed(new RailError(error.Message, error.Code, exception));
-        }
-
-        if (recover is null) return failure;
-        try
-        {
-            var corrected = await recover(Value, cancellationToken).ConfigureAwait(false);
-            return await predicate(corrected, cancellationToken).ConfigureAwait(false) == expected
-                ? Passed(corrected)
-                : Failed(error.WithRecovery(new RailRecoveryFailure("The corrected value did not satisfy the condition.")));
-        }
-        catch (Exception exception) when (exception is not OperationCanceledException)
-        {
-            return Failed(error.WithRecovery(new RailRecoveryFailure("Recovery or its validation threw an exception.", exception)));
-        }
-    }
-
-    private RailResult<T> EnsureCore(Func<T, bool> predicate, bool expected, RailError error, Func<T, T>? recover)
-    {
-        ArgumentNullException.ThrowIfNull(predicate);
-        // Validate even when this step is skipped, like other invalid API arguments.
-        var failure = Failed(error);
-        if (IsFailed) return this;
-        try
-        {
-            if (predicate(Value) == expected) return this;
-        }
-        catch (Exception exception) when (exception is not OperationCanceledException)
-        {
-            return Failed(new RailError(error.Message, error.Code, exception));
-        }
-
-        if (recover is null) return failure;
-        try
-        {
-            var corrected = recover(Value);
-            return predicate(corrected) == expected
-                ? Passed(corrected)
-                : Failed(error.WithRecovery(new RailRecoveryFailure("The corrected value did not satisfy the condition.")));
-        }
-        catch (Exception exception) when (exception is not OperationCanceledException)
-        {
-            return Failed(error.WithRecovery(new RailRecoveryFailure("Recovery or its validation threw an exception.", exception)));
-        }
-    }
 
     /// <summary>Transforms a successful value; captures callback exceptions except cancellation.</summary>
     /// <typeparam name="TNext">The next payload or item type.</typeparam>

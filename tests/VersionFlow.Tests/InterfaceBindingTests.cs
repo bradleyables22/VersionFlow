@@ -8,14 +8,58 @@ namespace VersionFlow.Tests;
 public sealed class InterfaceBindingTests
 {
     [Fact]
+    public void Synchronous_cqrs_can_be_called_directly_with_or_without_a_response()
+    {
+        ICqrsHandler<int, int> query = new SynchronousQuery();
+        var command = new SynchronousCommand();
+        ICqrsHandler<int> handler = command;
+
+        Assert.Equal(12, query.Handle(6));
+        handler.Handle(7);
+        Assert.Equal(7, command.LastRequest);
+
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        Assert.Throws<OperationCanceledException>(() => query.Handle(6, cancellation.Token));
+        Assert.Throws<OperationCanceledException>(() => handler.Handle(8, cancellation.Token));
+        Assert.Equal(7, command.LastRequest);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Synchronous_cqrs_supports_native_and_attribute_di(bool useAttributes)
+    {
+        var services = new ServiceCollection();
+        if (useAttributes)
+            services.AddAttributedServicesFromAssemblyContaining<InterfaceBindingTests>();
+        else
+        {
+            services.AddScoped<ICqrsHandler<int, int>, SynchronousQuery>();
+            services.AddScoped<ICqrsHandler<int>, SynchronousCommand>();
+        }
+
+        using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+        using var firstScope = provider.CreateScope();
+        using var secondScope = provider.CreateScope();
+        var query = firstScope.ServiceProvider.GetRequiredService<ICqrsHandler<int, int>>();
+        var command = firstScope.ServiceProvider.GetRequiredService<ICqrsHandler<int>>();
+        Assert.Equal(12, query.Handle(6));
+        command.Handle(7);
+        Assert.Equal(7, Assert.IsType<SynchronousCommand>(command).LastRequest);
+        Assert.Same(query, firstScope.ServiceProvider.GetRequiredService<ICqrsHandler<int, int>>());
+        Assert.NotSame(query, secondScope.ServiceProvider.GetRequiredService<ICqrsHandler<int, int>>());
+    }
+
+    [Fact]
     public async Task Cqrs_can_be_used_without_any_di_or_registry()
     {
-        ICqrsHandler<int, int> handler = new StandaloneHandler();
+        ICqrsAsyncHandler<int, int> handler = new StandaloneHandler();
         Assert.Equal(12, await handler.HandleAsync(6));
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
         await Assert.ThrowsAsync<OperationCanceledException>(() => handler.HandleAsync(6, cancellation.Token));
-        var references = typeof(ICqrsHandler<>).Assembly.GetReferencedAssemblies();
+        var references = typeof(ICqrsAsyncHandler<>).Assembly.GetReferencedAssemblies();
         Assert.DoesNotContain(references, reference => reference.Name!.StartsWith("VersionFlow.", StringComparison.Ordinal)
             || reference.Name.StartsWith("Microsoft.Extensions.", StringComparison.Ordinal));
     }
@@ -24,10 +68,10 @@ public sealed class InterfaceBindingTests
     public void Cqrs_can_use_native_di_without_the_attribute_extension()
     {
         var services = new ServiceCollection();
-        services.AddScoped<ICqrsHandler<int, int>, StandaloneHandler>();
+        services.AddScoped<ICqrsAsyncHandler<int, int>, StandaloneHandler>();
         using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
         using var scope = provider.CreateScope();
-        Assert.IsType<StandaloneHandler>(scope.ServiceProvider.GetRequiredService<ICqrsHandler<int, int>>());
+        Assert.IsType<StandaloneHandler>(scope.ServiceProvider.GetRequiredService<ICqrsAsyncHandler<int, int>>());
     }
 
     [Fact]
@@ -77,10 +121,32 @@ public sealed class InterfaceBindingTests
         Assert.Equal(original, services.ToArray());
     }
 
-    public sealed class StandaloneHandler : ICqrsHandler<int, int>
+    public sealed class StandaloneHandler : ICqrsAsyncHandler<int, int>
     {
         public Task<int> HandleAsync(int request, CancellationToken cancellationToken = default)
         { cancellationToken.ThrowIfCancellationRequested(); return Task.FromResult(request * 2); }
+    }
+
+    [Service(typeof(ICqrsHandler<int, int>))]
+    public sealed class SynchronousQuery : ICqrsHandler<int, int>
+    {
+        public int Handle(int request, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return request * 2;
+        }
+    }
+
+    [Service(typeof(ICqrsHandler<int>))]
+    public sealed class SynchronousCommand : ICqrsHandler<int>
+    {
+        public int LastRequest { get; private set; }
+
+        public void Handle(int request, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            LastRequest = request;
+        }
     }
 }
 

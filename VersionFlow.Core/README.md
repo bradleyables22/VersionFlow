@@ -177,7 +177,7 @@ using VersionFlow;
 using VersionFlow.Extensions.Cqrs;
 
 public sealed record GetPrice(int Quantity);
-public interface IGetPriceHandler : ICqrsHandler<GetPrice, decimal> { }
+public interface IGetPriceHandler : ICqrsAsyncHandler<GetPrice, decimal> { }
 
 [Versioned(typeof(IGetPriceHandler), 1, Key = "Pricing")]
 public sealed class GetPriceV1 : IGetPriceHandler
@@ -187,7 +187,7 @@ public sealed class GetPriceV1 : IGetPriceHandler
 }
 ```
 
-Install `VersionFlow.Extensions.Cqrs` for `ICqrsHandler`. Register the concrete versions and call AddVersionFlow normally. Inject IGetPriceHandler, not the generic base interface. Its inherited HandleAsync method is supported; the method key is Pricing.HandleAsync.
+Install `VersionFlow.Extensions.Cqrs` for `ICqrsAsyncHandler`. Register the concrete versions and call AddVersionFlow normally. Inject IGetPriceHandler, not the generic base interface. Its inherited `HandleAsync` method is supported; the method key is `Pricing.HandleAsync`. For synchronous work, wrap `ICqrsHandler<TRequest, TResponse>` and implement `Handle` instead; its method key is `Pricing.Handle`. The single-request-type forms support operations without a response payload.
 
 ## Feature flags
 

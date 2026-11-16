@@ -80,7 +80,7 @@ builder.Services.AddVersionFlow(builder.Configuration.GetSection("VersionFlow"))
 
 AddVersionFlow automatically discovers generated catalogs and registers scoped interface dispatchers. Do not bind IPricing yourself using Service interface bindings; it belongs to the dispatcher. Include implementation assemblies in the DI scan for multi-project applications. Core's automatic catalog discovery does not register concrete types for you.
 
-For plain CQRS handlers, explicit closed generic interface binding is valid. For versioned CQRS, define a non-generic wrapper inheriting ICqrsHandler<TRequest, TResult>, use it as the Versioned contract, and keep Service concrete-only. See the Core and CQRS READMEs for full examples.
+For plain CQRS handlers, explicit closed generic interface binding is valid. For versioned CQRS, define a non-generic wrapper inheriting `ICqrsHandler<TRequest, TResult>` for synchronous work or `ICqrsAsyncHandler<TRequest, TResult>` for asynchronous work, use it as the Versioned contract, and keep Service concrete-only. See the Core and CQRS READMEs for full examples.
 
 ## Limitations
 

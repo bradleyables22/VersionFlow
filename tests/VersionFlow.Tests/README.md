@@ -16,3 +16,5 @@ RailwayTests covers result chaining, recovery and revalidation, typed error defa
 ResultsTests covers immutable outcomes, collection snapshots, numbered/offset/cursor pagination boundaries, JSON diagnostic exclusion, strict timestamp cursor conversion, and executed HTTP responses including empty pages and Problem Details.
 
 HostResultTests executes MVC results, checking typed controller compatibility, paging metadata, content types, and failure status/details.
+
+RailwayValidationCallbackTests covers per-rule observers across validation aliases and overloads, direct and task-based chains, recovery reporting, skipped rules, observer ordering, cancellation, and duplicate callback rejection.

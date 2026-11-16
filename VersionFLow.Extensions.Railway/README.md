@@ -39,9 +39,58 @@ string message = result.Match(
 
 EnsureTrue requires the predicate to return true; EnsureFalse requires false. Ensure remains a compatibility alias for EnsureTrue. Both explicit methods stop at the first failure. Recovery belongs to that specific rule: it runs once, then the same predicate checks the corrected value once. A passing rule never invokes recovery. Earlier failures skip subsequent rules and their recovery callbacks. If the initial predicate throws, its exception is captured without attempting recovery.
 
-If correction does not satisfy the rule, the original error remains with RailRecoveryFailure details. If correction or its recheck throws, those details contain the exception. Successful correction replaces the value and leaves no error.
+If correction does not satisfy the rule, the original error remains with RailRecoveryFailure details. If correction or its recheck throws, those details contain the exception. Successful correction replaces the value and leaves no error. Use the per-check passed observer below to learn whether correction occurred.
 
 Prefer immutable records and return corrected copies. Results do not clone values, roll back mutations, or undo external side effects.
+
+## Observe an individual validation check
+
+Use `onPassed` and `onFailed` inside `Ensure`, `EnsureTrue`, or `EnsureFalse` to observe that rule only:
+
+~~~csharp
+var validated = "An overly long title".ToRailResult()
+    .EnsureFalse(string.IsNullOrWhiteSpace, "Title is required.",
+        onFailed: error => Console.WriteLine(error.Message))
+    .EnsureTrue(title => title.Length <= 10, "Title is too long.",
+        recover: title => title[..10],
+        onPassed: (title, wasRecovered) =>
+            Console.WriteLine(wasRecovered ? $"Shortened to: {title}" : "Title length is valid."),
+        onFailed: error => Console.WriteLine(error.Message));
+~~~
+
+| Callback | Receives | Runs when |
+| --- | --- | --- |
+| `onPassed` | Final value and `wasRecovered` boolean | This rule passes initially or after successful recovery |
+| `onFailed` | The final `RailError` | This rule fails, its predicate throws, or recovery/revalidation fails |
+| `onPassedAsync` | Final value, recovery boolean, and cancellation token | The same successful outcome, on async validation methods |
+| `onFailedAsync` | Final `RailError` and cancellation token | The same failed outcome, on async validation methods |
+
+Callbacks run after this rule's final outcome is known. A rule that recovers successfully calls only its passed observer, with the corrected value and `wasRecovered: true`. The boolean describes this rule, not earlier recovery in the chain. Successful results still have empty `Errors`; no recovery history is stored on the result.
+
+An incoming failure skips the predicate, recovery, and all observers for this rule. This differs from a chained `OnFailure`, which observes any existing failure, even one from an earlier rule. Use per-check `onFailed` for rule-specific logging and `OnFailure` for logging the chain's overall failure.
+
+Observers cannot replace the result. Their exceptions propagate to the caller, including cancellation; they are not captured as validation failures and do not invoke the opposite observer. Exceptions from the predicate remain validation errors, and exceptions from recovery or revalidation remain `RecoveryFailure` details on the error passed to `onFailed`.
+
+### Async validation observers
+
+`EnsureAsync`, `EnsureTrueAsync`, and `EnsureFalseAsync` accept both synchronous observers and the async observer forms. Mix them across outcomes, but supply only one form for each outcome: `onPassed` **or** `onPassedAsync`, and `onFailed` **or** `onFailedAsync`. Supplying both forms for one outcome throws `ArgumentException`, even when an earlier failure would skip the rule.
+
+~~~csharp
+var validatedAsync = await "Title".ToRailResult().EnsureTrueAsync(
+    (title, ct) => Task.FromResult(title.Length <= 10),
+    "Title is too long.",
+    onPassed: (title, wasRecovered) => Console.WriteLine($"Accepted: {title}"),
+    onFailedAsync: async (error, ct) =>
+    {
+        await Task.Delay(1, ct); // Replace with application reporting I/O.
+        Console.WriteLine(error.Message);
+    },
+    cancellationToken: cancellationToken);
+~~~
+
+The example uses a caller-supplied `cancellationToken`. Async observers receive that token and are awaited before later chain steps run. Callbacks must observe the token during their work. Cancellation is propagated, not reported as a failed validation. A synchronous predicate can be adapted with `Task.FromResult`, as above.
+
+The same observer arguments work when chaining from `Task<RailResult<T>>`. Existing calls without observers retain their validation behavior; the original method signatures remain available to already-compiled consumers.
 
 ## Transform and chain
 

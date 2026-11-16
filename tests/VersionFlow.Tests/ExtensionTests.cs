@@ -60,13 +60,13 @@ public sealed class ExtensionTests
         Assert.Contains(services, d => d.ServiceType == typeof(ScopedUtility));
         using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true }); using var scope = provider.CreateScope();
         var concrete = scope.ServiceProvider.GetRequiredService<ResultHandler>();
-        var handler = scope.ServiceProvider.GetRequiredService<ICqrsHandler<Request, string>>();
+        var handler = scope.ServiceProvider.GetRequiredService<ICqrsAsyncHandler<Request, string>>();
         Assert.NotSame(concrete, handler);
-        Assert.Same(handler, scope.ServiceProvider.GetRequiredService<ICqrsHandler<Request, string>>());
+        Assert.Same(handler, scope.ServiceProvider.GetRequiredService<ICqrsAsyncHandler<Request, string>>());
         using var cts = new CancellationTokenSource();
         Assert.Equal("value:42", await handler.HandleAsync(new Request(42), cts.Token));
         Assert.Equal(cts.Token, ((ResultHandler)handler).LastToken);
-        var noResult = scope.ServiceProvider.GetRequiredService<ICqrsHandler<Request>>();
+        var noResult = scope.ServiceProvider.GetRequiredService<ICqrsAsyncHandler<Request>>();
         await noResult.HandleAsync(new Request(7), cts.Token);
         Assert.Equal(7, provider.GetRequiredService<SharedDependency>().LastValue);
         cts.Cancel();
@@ -81,7 +81,7 @@ public sealed class ExtensionTests
         Assert.NotSame(a.ServiceProvider.GetRequiredService<ResultHandler>(), b.ServiceProvider.GetRequiredService<ResultHandler>());
         Assert.Same(a.ServiceProvider.GetRequiredService<NoResultHandler>(), b.ServiceProvider.GetRequiredService<NoResultHandler>());
         Assert.NotSame(a.ServiceProvider.GetRequiredService<TransientHandler>(), a.ServiceProvider.GetRequiredService<TransientHandler>());
-        Assert.NotSame(a.ServiceProvider.GetRequiredService<ResultHandler>(), a.ServiceProvider.GetRequiredService<ICqrsHandler<string, string>>());
+        Assert.NotSame(a.ServiceProvider.GetRequiredService<ResultHandler>(), a.ServiceProvider.GetRequiredService<ICqrsAsyncHandler<string, string>>());
     }
 
     [Fact]
@@ -175,8 +175,8 @@ public sealed class UnmarkedUtility;
 [Service(ServiceLifetime.Transient)]
 public sealed class ThrowsOnConstruction { public ThrowsOnConstruction() => throw new InvalidOperationException("Expected constructor exception"); }
 public sealed record Request(int Value);
-[Service(ServiceLifetime.Scoped, typeof(ICqrsHandler<Request, string>), typeof(ICqrsHandler<string, string>))]
-public sealed class ResultHandler(SharedDependency dependency) : ICqrsHandler<Request, string>, ICqrsHandler<string, string>
+[Service(ServiceLifetime.Scoped, typeof(ICqrsAsyncHandler<Request, string>), typeof(ICqrsAsyncHandler<string, string>))]
+public sealed class ResultHandler(SharedDependency dependency) : ICqrsAsyncHandler<Request, string>, ICqrsAsyncHandler<string, string>
 {
     public CancellationToken LastToken { get; private set; }
     public Task<string> HandleAsync(Request request, CancellationToken cancellationToken = default)
@@ -186,14 +186,14 @@ public sealed class ResultHandler(SharedDependency dependency) : ICqrsHandler<Re
     }
     public Task<string> HandleAsync(string request, CancellationToken cancellationToken = default) => Task.FromResult(request);
 }
-[Service(typeof(ICqrsHandler<Request>), ServiceLifetime.Singleton)]
-public sealed class NoResultHandler(SharedDependency dependency) : ICqrsHandler<Request>
+[Service(typeof(ICqrsAsyncHandler<Request>), ServiceLifetime.Singleton)]
+public sealed class NoResultHandler(SharedDependency dependency) : ICqrsAsyncHandler<Request>
 {
     public Task HandleAsync(Request request, CancellationToken cancellationToken = default)
     { cancellationToken.ThrowIfCancellationRequested(); dependency.LastValue = request.Value; return Task.CompletedTask; }
 }
 [Service(ServiceLifetime.Transient, AsImplementedInterfaces = true)]
-public sealed class TransientHandler : ICqrsHandler<int> { public Task HandleAsync(int request, CancellationToken cancellationToken = default) => Task.CompletedTask; }
+public sealed class TransientHandler : ICqrsAsyncHandler<int> { public Task HandleAsync(int request, CancellationToken cancellationToken = default) => Task.CompletedTask; }
 public interface IVersionedUtility { int Get(); }
 [Service] [Versioned(typeof(IVersionedUtility), 1, Key = "Utility")]
 public sealed class VersionedUtility1 : IVersionedUtility { public int Get() => 1; }
