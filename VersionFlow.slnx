@@ -1,5 +1,4 @@
 <Solution>
-<Project Path="samples/VersionFlow.SampleWeb/VersionFlow.SampleWeb.csproj" />
 <Project Path="tests/VersionFlow.Tests/VersionFlow.Tests.csproj" />
 <Project Path="tests/VersionFlow.TestServices/VersionFlow.TestServices.csproj" />
 <Project Path="VersionFlow.Core/VersionFlow.Core.csproj" />

@@ -15,9 +15,8 @@ Start with [VersionFlow.Core](VersionFlow.Core/README.md) for installation and a
 | [VersionFlow.Extensions.Results](VersionFlow.Extensions.Results/README.md) | Operation outcomes and numbered, offset, or cursor pages. |
 | [VersionFlow.Extensions.Results.AspNetCore](VersionFlow.Extensions.Results.AspNetCore/README.md) | HTTP response mapping for Results. |
 
-## Samples and development
+## Development
 
-- [Sample web application](samples/VersionFlow.SampleWeb/README.md)
 - [Source generator (bundled with Core)](VersionFlow.Generator/README.md)
 - [Tests](tests/VersionFlow.Tests/README.md)
 - [Referenced-assembly test fixture](tests/VersionFlow.TestServices/README.md)
