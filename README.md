@@ -1,6 +1,6 @@
 # VersionFlow
 
-Choose .NET class and method versions through configuration while calling ordinary typed interfaces.
+Choose versions of DI-registered .NET services and their instance methods through configuration while calling ordinary typed interfaces. Version routing requires dependency injection; static methods and direct implementation calls are not routed.
 
 Start with [VersionFlow.Core](VersionFlow.Core/README.md) for installation and a working example.
 

@@ -4,6 +4,16 @@
 
 Choose which implementation receives a call through configuration while consumers use an ordinary typed interface. DI creates your implementations; generated dispatchers route each call to the selected version.
 
+## Scope: DI-managed services
+
+**Version routing applies to services registered in Microsoft dependency injection (DI) and their instance methods.** Register each versioned implementation or operations host by concrete type, along with its constructor dependencies. `[Versioned]` supplies generator metadata; it does not register the service. `AddVersionFlow` registers the generated interface dispatchers, not your implementations.
+
+Call through the generated contract interface or the `IVersionFlow` fluent API to select a version. Fluent `.Version<TService>(...)` branches also require the selected `TService` to be registered in DI.
+
+Static classes and static methods are not supported as versioned implementations. Calls made directly to a concrete implementation, including an object created with `new`, bypass version selection. Adding an attribute does not intercept those calls.
+
+Feature flags are separate: `IVersionFlow.FlagIsEnabled(...)` can be used without any versioned service, after registering VersionFlow in DI.
+
 ## Install
 
 Target .NET 10 or later. Install Core in the startup project and every library declaring versioned implementations. The package includes its source generator; no separate generator package is needed.
@@ -192,13 +202,18 @@ Use `VersionFlow:Flags` for named boolean gates independent of version selection
 ```
 
 ```csharp
-if (flow.IsEnabled("EnableExports"))
+if (flow.FlagIsEnabled("EnableExports"))
 {
     // Export functionality
 }
+
+if (flow.FlagIsDisabled("NewCheckout"))
+{
+    // Keep the existing checkout flow
+}
 ```
 
-`flow` is the existing scoped `IVersionFlow`. For code configuration, set `options.Flags["EnableExports"] = true`. Names are case-sensitive and missing flags return false. No versioned service is required. Valid configuration reloads affect subsequent checks even in an existing scope; invalid updates retain the entire last valid snapshot, including flags and version settings. Flags never alter version selection.
+`flow` is the existing scoped `IVersionFlow`. For code configuration, set `options.Flags["EnableExports"] = true`. `FlagIsEnabled(name)` returns true only for an enabled flag. `FlagIsDisabled(name)` is its inverse: it returns true for false or missing flags. Names are case-sensitive; both methods reject null names. No versioned service is required. Valid configuration reloads affect subsequent checks even in an existing scope; invalid updates retain the entire last valid snapshot, including flags and version settings. Flags never alter version selection.
 
 ## Options and lifetime behavior
 

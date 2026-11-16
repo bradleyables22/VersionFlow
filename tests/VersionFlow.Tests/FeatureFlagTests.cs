@@ -19,13 +19,19 @@ public sealed class FeatureFlagTests
         using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
         using var scope = provider.CreateScope();
         var flow = scope.ServiceProvider.GetRequiredService<IVersionFlow>();
-        Assert.True(flow.IsEnabled("EnableExports"));
-        Assert.False(flow.IsEnabled("enableexports"));
-        Assert.False(flow.IsEnabled("NewCheckout"));
-        Assert.False(flow.IsEnabled("Missing"));
-        Assert.Throws<ArgumentNullException>(() => flow.IsEnabled(null!));
+        Assert.True(flow.FlagIsEnabled("EnableExports"));
+        Assert.False(flow.FlagIsDisabled("EnableExports"));
+        Assert.False(flow.FlagIsEnabled("enableexports"));
+        Assert.True(flow.FlagIsDisabled("enableexports"));
+        Assert.False(flow.FlagIsEnabled("NewCheckout"));
+        Assert.True(flow.FlagIsDisabled("NewCheckout"));
+        Assert.False(flow.FlagIsEnabled("Missing"));
+        Assert.True(flow.FlagIsDisabled("Missing"));
+        Assert.Throws<ArgumentNullException>(() => flow.FlagIsEnabled(null!));
+        Assert.Throws<ArgumentNullException>(() => flow.FlagIsDisabled(null!));
         flags["EnableExports"] = false;
-        Assert.True(flow.IsEnabled("EnableExports"));
+        Assert.True(flow.FlagIsEnabled("EnableExports"));
+        Assert.False(flow.FlagIsDisabled("EnableExports"));
     }
 
     [Fact]
@@ -41,30 +47,37 @@ public sealed class FeatureFlagTests
         using var provider = services.BuildServiceProvider();
         using var scope = provider.CreateScope();
         var flow = scope.ServiceProvider.GetRequiredService<IVersionFlow>();
-        Assert.True(flow.IsEnabled("EnableExports"));
-        Assert.False(flow.IsEnabled("enableexports"));
+        Assert.True(flow.FlagIsEnabled("EnableExports"));
+        Assert.False(flow.FlagIsDisabled("EnableExports"));
+        Assert.False(flow.FlagIsEnabled("enableexports"));
+        Assert.True(flow.FlagIsDisabled("enableexports"));
 
         configuration["VersionFlow:Flags:EnableExports"] = "false";
         configuration["VersionFlow:Overrides:Classes:Pricing:Version"] = "9";
         configuration.Reload();
-        Assert.True(flow.IsEnabled("EnableExports"));
+        Assert.True(flow.FlagIsEnabled("EnableExports"));
+        Assert.False(flow.FlagIsDisabled("EnableExports"));
         Assert.Equal(1, flow.Select("Pricing").Number);
 
         configuration["VersionFlow:Overrides:Classes:Pricing:Version"] = "2";
         configuration.Reload();
-        Assert.False(flow.IsEnabled("EnableExports"));
+        Assert.False(flow.FlagIsEnabled("EnableExports"));
+        Assert.True(flow.FlagIsDisabled("EnableExports"));
         Assert.Equal(2, flow.Select("Pricing").Number);
 
         configuration["VersionFlow:Flags:EnableExports"] = "not-a-bool";
         configuration.Reload();
-        Assert.False(flow.IsEnabled("EnableExports"));
+        Assert.False(flow.FlagIsEnabled("EnableExports"));
+        Assert.True(flow.FlagIsDisabled("EnableExports"));
 
         configuration["VersionFlow:Flags:EnableExports"] = "true";
         configuration.Reload();
-        Assert.True(flow.IsEnabled("EnableExports"));
+        Assert.True(flow.FlagIsEnabled("EnableExports"));
+        Assert.False(flow.FlagIsDisabled("EnableExports"));
         configuration.Providers.Single().Set("VersionFlow:Flags:EnableExports", null);
         configuration.Reload();
-        Assert.False(flow.IsEnabled("EnableExports"));
+        Assert.False(flow.FlagIsEnabled("EnableExports"));
+        Assert.True(flow.FlagIsDisabled("EnableExports"));
     }
 
     [Fact]
