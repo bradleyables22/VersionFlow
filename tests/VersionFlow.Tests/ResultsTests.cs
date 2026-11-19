@@ -12,12 +12,12 @@ public sealed class ResultsTests
     [Fact]
     public void Outcomes_distinguish_null_and_default_success_from_failure()
     {
-        Assert.True(TryResult.Succeeded().Success);
-        Assert.True(TryResult<string?>.Succeeded(null).Success);
-        Assert.True(TryResult<int>.Succeeded(0).Success);
+        Assert.True(TryResult.Succeeded().IsSuccess);
+        Assert.True(TryResult<string?>.Succeeded(null).IsSuccess);
+        Assert.True(TryResult<int>.Succeeded(0).IsSuccess);
         var exception = new InvalidOperationException("private diagnostics");
         var failure = TryResult<int>.Failed("Safe message", exception);
-        Assert.False(failure.Success);
+        Assert.False(failure.IsSuccess);
         Assert.Equal(0, failure.Data);
         Assert.Same(exception, failure.Exception);
         Assert.Throws<ArgumentException>(() => TryResult.Failed(" "));
@@ -29,7 +29,11 @@ public sealed class ResultsTests
     {
         var failure = TryResult<int>.Failed("Safe message", new Exception("secret"));
         using var json = JsonDocument.Parse(JsonSerializer.Serialize(failure));
-        Assert.False(json.RootElement.GetProperty("Success").GetBoolean());
+        Assert.False(json.RootElement.GetProperty("IsSuccess").GetBoolean());
+        Assert.False(json.RootElement.TryGetProperty("Success", out _));
+        using var webJson = JsonDocument.Parse(JsonSerializer.Serialize(failure, JsonSerializerOptions.Web));
+        Assert.False(webJson.RootElement.GetProperty("isSuccess").GetBoolean());
+        Assert.False(webJson.RootElement.TryGetProperty("success", out _));
         Assert.Equal("Safe message", json.RootElement.GetProperty("Message").GetString());
         Assert.False(json.RootElement.TryGetProperty("Exception", out _));
         Assert.DoesNotContain("secret", json.RootElement.GetRawText());

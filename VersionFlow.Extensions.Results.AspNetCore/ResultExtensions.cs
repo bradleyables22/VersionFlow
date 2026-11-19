@@ -22,7 +22,7 @@ public static partial class ResultExtensions
     {
         ArgumentNullException.ThrowIfNull(result);
         ValidateStatus(failureStatusCode);
-        return result.Success ? HttpResults.NoContent() : Failure(failureStatusCode, failureTitle, failureMessage);
+        return result.IsSuccess ? HttpResults.NoContent() : Failure(failureStatusCode, failureTitle, failureMessage);
     }
 
     /// <summary>A successful value returns 200 with the payload; null returns 204. Empty collections remain 200.</summary>
@@ -37,7 +37,7 @@ public static partial class ResultExtensions
     {
         ArgumentNullException.ThrowIfNull(result);
         ValidateStatus(failureStatusCode);
-        if (!result.Success) return Failure(failureStatusCode, failureTitle, failureMessage);
+        if (!result.IsSuccess) return Failure(failureStatusCode, failureTitle, failureMessage);
         return result.Data is null ? HttpResults.NoContent() : HttpResults.Ok(result.Data);
     }
 
@@ -54,7 +54,7 @@ public static partial class ResultExtensions
         ArgumentNullException.ThrowIfNull(result);
         ValidateStatus(failureStatusCode);
         // Object preserves the concrete page's metadata during JSON serialization.
-        return result.Success ? HttpResults.Ok<object>(result) : Failure(failureStatusCode, failureTitle, failureMessage);
+        return result.IsSuccess ? HttpResults.Ok<object>(result) : Failure(failureStatusCode, failureTitle, failureMessage);
     }
 
     private static IResult Failure(int status, string? title, string? detail) => HttpResults.Problem(

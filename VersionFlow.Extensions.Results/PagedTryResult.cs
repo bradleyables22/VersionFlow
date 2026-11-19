@@ -22,9 +22,9 @@ public sealed class PagedTryResult<T> : CollectionResult<T>
     public long? TotalPages => TotalCount is { } total && PageSize is { } size
         ? total / size + (total % size == 0 ? 0 : 1) : null;
     /// <summary>Whether a successful numbered page has a later page according to TotalCount.</summary>
-    public bool HasNextPage => Success && PageNumber < TotalPages;
+    public bool HasNextPage => IsSuccess && PageNumber < TotalPages;
     /// <summary>Whether a successful numbered page has a page number greater than one.</summary>
-    public bool HasPreviousPage => Success && PageNumber > 1;
+    public bool HasPreviousPage => IsSuccess && PageNumber > 1;
 
     /// <summary>Copies the supplied items into a successful result; provide an already-fetched page, not an unsliced query.</summary>
     /// <param name="data">The payload, or already-fetched page items. Collection items are copied once, not queried or sliced.</param>

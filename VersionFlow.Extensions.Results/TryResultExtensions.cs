@@ -12,7 +12,7 @@ public static class TryResultExtensions
     public static TryResult<T> FailWhen<T>(this TryResult<T> result, Func<T, bool> predicate, string message)
     {
         Validate(result, predicate, message);
-        return result.Success && predicate(result.Data!) ? TryResult<T>.Failed(message) : result;
+        return result.IsSuccess && predicate(result.Data!) ? TryResult<T>.Failed(message) : result;
     }
 
     /// <summary>Checks a successful payload asynchronously.</summary>
@@ -39,7 +39,7 @@ public static class TryResultExtensions
     {
         Validate(result, predicate, message);
         cancellationToken.ThrowIfCancellationRequested();
-        if (!result.Success) return result;
+        if (!result.IsSuccess) return result;
         var fail = await predicate(result.Data!, cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         return fail ? TryResult<T>.Failed(message) : result;

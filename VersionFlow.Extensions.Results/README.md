@@ -30,9 +30,9 @@ Async predicates support both `Func<T, Task<bool>>` and `Func<T, CancellationTok
 
 ## Design decisions
 
-`Succeeded` / `Failed` describe the outcome being created; `Pass` / `Fail` sound like operations or validation instructions. `Success` stays the boolean discriminator. There are no aliases or implicit conversions. Expected failures need only a nonblank caller-safe message, not an exception. Exceptions are optional diagnostic context and are never automatically copied into messages.
+`Succeeded` / `Failed` describe the outcome being created; `Pass` / `Fail` sound like operations or validation instructions. `IsSuccess` is the boolean discriminator. There are no aliases or implicit conversions. Expected failures need only a nonblank caller-safe message, not an exception. Exceptions are optional diagnostic context and are never automatically copied into messages.
 
-Results have private constructors and get-only properties so callers cannot create contradictory states. `TryResult<T>` permits a successful null; check `Success`, since a failed value type has `default(T)` in `Data`. Collections require a nonnull sequence and snapshot it into a read-only list; contained objects are not deep-cloned. Empty success uses `[]`. Failures have empty collections and null paging metadata.
+Results have private constructors and get-only properties so callers cannot create contradictory states. `TryResult<T>` permits a successful null; check `IsSuccess`, since a failed value type has `default(T)` in `Data`. Collections require a nonnull sequence and snapshot it into a read-only list; contained objects are not deep-cloned. Empty success uses `[]`. Failures have empty collections and null paging metadata.
 
 `PagedTryResult<T>` uses one-based page numbers, a positive page size, and an exact nonnegative total. `OffsetTryResult<T>` uses a zero-based offset and positive limit. Both validate that returned items fit the requested window and remaining total; an empty page beyond the end is allowed. Total/page arithmetic uses `long`. Offset continuation advances by the actual returned count; an empty offset page cannot advance.
 
@@ -40,7 +40,9 @@ Results have private constructors and get-only properties so callers cannot crea
 
 ## JSON and HTTP
 
-With System.Text.Json, `Success`, `Message`, data, and paging metadata serialize. Only `Exception` is ignored. Hiding the discriminator makes an independently serialized failure indistinguishable from an empty response. Messages therefore must be safe for callers. No Newtonsoft dependency is included; applications using a different serializer must configure diagnostic exclusion themselves.
+With System.Text.Json, `IsSuccess`, `Message`, data, and paging metadata serialize. Only `Exception` is ignored. Hiding the discriminator makes an independently serialized failure indistinguishable from an empty response. Messages therefore must be safe for callers. No Newtonsoft dependency is included; applications using a different serializer must configure diagnostic exclusion themselves.
+
+The outcome property was renamed from `Success` to `IsSuccess`. Update callers and JSON consumers: the default JSON name is `IsSuccess`, or `isSuccess` with web/camel-case options. HTTP collection envelope readers expect the renamed field.
 
 These are producer-side outcomes, not deserializable request/transport DTOs. Deserialize API responses into application-owned DTOs. Serialize concrete result types (or `object`) to retain paging metadata; the common abstract bases are not polymorphic wire contracts. Naming and null omission follow the application's JSON options.
 

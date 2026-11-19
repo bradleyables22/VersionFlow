@@ -19,7 +19,7 @@ public sealed class OffsetTryResult<T> : CollectionResult<T>
     /// <summary>The exact nonnegative count across all pages, or null on failure.</summary>
     public long? TotalCount { get; }
     /// <summary>Whether this successful, nonempty page leaves items after its last returned item.</summary>
-    public bool HasMore => Success && Count > 0 && Offset < TotalCount - Count;
+    public bool HasMore => IsSuccess && Count > 0 && Offset < TotalCount - Count;
     /// <summary>The current offset plus returned item count when more items remain; otherwise null.</summary>
     public long? NextOffset => HasMore ? Offset + Count : null;
 

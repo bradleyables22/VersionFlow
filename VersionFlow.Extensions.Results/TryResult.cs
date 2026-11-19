@@ -22,7 +22,7 @@ public sealed class TryResult<T> : ResultOutcome
     private TryResult(bool success, T? data, string? message = null, Exception? exception = null)
         : base(success, message, exception) => Data = data;
 
-    /// <summary>Check Success before using Data; failures contain default(T).</summary>
+    /// <summary>Check IsSuccess before using Data; failures contain default(T).</summary>
     public T? Data { get; }
 
     /// <summary>Creates a successful outcome from the supplied payload; null is allowed.</summary>

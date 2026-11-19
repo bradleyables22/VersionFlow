@@ -9,13 +9,13 @@ public abstract class ResultOutcome
     {
         if (!success && string.IsNullOrWhiteSpace(message))
             throw new ArgumentException("A failure requires a message.", nameof(message));
-        Success = success;
+        IsSuccess = success;
         Message = message;
         Exception = exception;
     }
 
     /// <summary>Whether the operation succeeded. Check before using the payload or page metadata.</summary>
-    public bool Success { get; }
+    public bool IsSuccess { get; }
     /// <summary>The caller-safe failure message, or null on success.</summary>
     public string? Message { get; }
 

@@ -15,7 +15,7 @@ public static partial class ResultExtensions
     {
         ArgumentNullException.ThrowIfNull(result);
         ValidateStatus(failureStatusCode);
-        return result.Success ? new NoContentResult() : ActionFailure(failureStatusCode, failureTitle, failureMessage);
+        return result.IsSuccess ? new NoContentResult() : ActionFailure(failureStatusCode, failureTitle, failureMessage);
     }
 
     /// <summary>Returns 200 with the payload, 204 for null, or Problem Details on failure.</summary>
@@ -30,7 +30,7 @@ public static partial class ResultExtensions
     {
         ArgumentNullException.ThrowIfNull(result);
         ValidateStatus(failureStatusCode);
-        if (!result.Success) return ActionFailure(failureStatusCode, failureTitle, failureMessage);
+        if (!result.IsSuccess) return ActionFailure(failureStatusCode, failureTitle, failureMessage);
         return result.Data is null ? new NoContentResult() : new OkObjectResult(result.Data);
     }
 
@@ -46,7 +46,7 @@ public static partial class ResultExtensions
     {
         ArgumentNullException.ThrowIfNull(result);
         ValidateStatus(failureStatusCode);
-        return result.Success ? new OkObjectResult(result) : ActionFailure(failureStatusCode, failureTitle, failureMessage);
+        return result.IsSuccess ? new OkObjectResult(result) : ActionFailure(failureStatusCode, failureTitle, failureMessage);
     }
 
     private static ObjectResult ActionFailure(int status, string? title, string? detail) => new(new ProblemDetails

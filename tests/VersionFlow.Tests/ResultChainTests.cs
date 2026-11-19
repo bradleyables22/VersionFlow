@@ -8,7 +8,7 @@ public sealed class ResultChainTests
     [Fact]
     public void Conversions_preserve_factory_semantics()
     {
-        Assert.True(((string?)null).ToTryResult().Success);
+        Assert.True(((string?)null).ToTryResult().IsSuccess);
         var values = new List<int> { 1, 2 };
         var collection = values.ToCollectionTryResult();
         values.Add(3);
@@ -27,13 +27,13 @@ public sealed class ResultChainTests
         var original = 42.ToTryResult();
         Assert.Same(original, original.FailWhen(_ => false, "Unused"));
         var failed = original.FailWhen(n => n == 42, "First");
-        Assert.False(failed.Success);
+        Assert.False(failed.IsSuccess);
         Assert.Equal(0, failed.Data);
         Assert.Equal("First", failed.Message);
         Assert.Same(failed, failed.FailWhen(_ => throw new Exception(), "Second"));
         var diagnostic = TryResult<int>.Failed("Original", new Exception());
         Assert.Same(diagnostic, diagnostic.FailWhen(_ => true, "Replacement"));
-        Assert.False(((string?)null).ToTryResult().FailWhen(s => s is null, "Missing").Success);
+        Assert.False(((string?)null).ToTryResult().FailWhen(s => s is null, "Missing").IsSuccess);
         Assert.Throws<ArgumentException>(() => original.FailWhen(_ => false, " "));
         Assert.Throws<ArgumentNullException>(() => original.FailWhen(null!, "Missing"));
         Assert.Throws<InvalidOperationException>(() => original.FailWhen(_ => throw new InvalidOperationException(), "Rule"));
@@ -55,11 +55,11 @@ public sealed class ResultChainTests
             .FailWhen(_ => throw new Exception(), "Second")
             .FailWhenAsync(_ => throw new Exception(), "Third")
             .FailWhenAsync((_, _) => throw new Exception(), "Fourth", cancellation.Token);
-        Assert.False(failed.Success);
+        Assert.False(failed.IsSuccess);
         Assert.Equal("First", failed.Message);
         Assert.Same(failed, await failed.FailWhenAsync(_ => throw new Exception(), "Skipped"));
         Assert.False((await ((string?)null).ToTryResult()
-            .FailWhenAsync(s => Task.FromResult(s is null), "Missing")).Success);
+            .FailWhenAsync(s => Task.FromResult(s is null), "Missing")).IsSuccess);
     }
 
     [Fact]
