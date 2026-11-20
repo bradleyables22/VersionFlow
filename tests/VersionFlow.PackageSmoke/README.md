@@ -2,7 +2,7 @@
 
 Package-consumer executable for VersionFlow, intentionally outside the solution so ordinary restore does not require a previously packed release.
 
-This project and its PackageSmoke.Library fixture reference only packed Core, never runtime/generator source projects. The consumer registers concrete implementations and calls AddVersionFlow without naming catalogs or registering dispatchers. It verifies automatic discovery in both projects, typed routing, method precedence, explicit overrides, fluent callbacks, and rejection of unknown names.
+This project and its PackageSmoke.Library fixture reference only packed VersionFlow, never runtime/generator source projects. The consumer registers concrete implementations and calls AddVersionFlow without naming catalogs or registering dispatchers. It verifies automatic discovery in both projects, typed routing, method precedence, explicit overrides, fluent callbacks, and rejection of unknown names.
 
 CI packs first, then restores/runs this project using a fresh cache and exclusive local VersionFlow source mapping. No PowerShell scripts are required.
 

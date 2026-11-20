@@ -10,7 +10,7 @@ public enum RailFailureMode
 }
 
 /// <summary>Operations for ordered collections of railway results.</summary>
-public static class RailResult
+public static partial class RailResult
 {
     /// <summary>Combines results into a read-only list, collecting all errors by default.</summary>
     /// <typeparam name="T">The payload or item type.</typeparam>

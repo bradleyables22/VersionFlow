@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <Version>1.1.1</Version>
+    <Version>1.1.2</Version>
     <TargetFramework>net10.0</TargetFramework>
     <AssemblyName>VersionFlow.Extensions.Railway</AssemblyName>
     <RootNamespace>VersionFlow.Extensions.Railway</RootNamespace>

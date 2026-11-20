@@ -292,6 +292,49 @@ Mapping intentionally replaces errors; diagnostic fields are not copied automati
 
 ## Combining results and processing collections
 
+### Observing completion and retaining partial successes
+
+`OnCompleted` and `OnCompletedAsync` observe either outcome of any `RailResult<T>` and return the same result. The callback receives the entire result. Both also work on `Task<RailResult<T>>`. The async callback is awaited before the chain continues; observer exceptions propagate. These are result observers, not `finally` blocks: upstream task faults and cancellation skip the observer.
+
+Use `RailResult.TraverseResults` or `TraverseResultsAsync` when successful and failed items must both remain available. They attempt every item sequentially and return `RailBatchResult<TInput, TOutput>`; input and output types can differ. No failure-mode argument is needed.
+
+- `Entries`: each original `Input` paired with its `Result`, preserving input order and duplicates.
+- `Results`: every individual `RailResult<TOutput>` in input order.
+- `SuccessfulValues`: successful output values.
+- `Failures`: failed entries with their original inputs and result errors.
+- `Errors`: flattened item errors, followed by source enumeration errors.
+- `EnumerationErrors`: errors that prevented further source enumeration, without inventing an input item.
+
+All collections are read-only snapshots; input and output objects themselves are not cloned. Empty batches pass. Operation exceptions and null results become item failures and processing continues; enumeration exceptions retain prior outcomes and stop enumeration. Cancellation propagates.
+
+Batch instances and their tasks support `OnFailure`, `OnFailureAsync`, `OnCompleted`, and `OnCompletedAsync`. All receive the full batch and preserve its identity. Failure observers run when any item or enumeration failed; completion observers run for either batch outcome.
+
+~~~csharp
+var cleanupResults = await RailResult.TraverseResultsAsync(
+    groupsToCleanup,
+    (group, ct) => DeleteGroupAsync(group.ID, ct),
+    cancellationToken)
+    .OnFailure(batch => NotifyFailures(batch.Failures.Count, batch.Errors))
+    .OnCompletedAsync(async (batch, ct) =>
+    {
+        // Use original inputs even when DeleteGroupAsync returns another payload type.
+        var deletedGroups = batch.Entries
+            .Where(entry => entry.Result.IsPassed)
+            .Select(entry => entry.Input)
+            .ToList();
+
+        await BulkRemoveAsync(deletedGroups, ct);
+        // Failed entries remain available in batch.Failures for retry.
+    }, cancellationToken);
+
+// Every delete and the bulk removal have completed before proceeding.
+// Process the independent add batch here.
+~~~
+
+`Failures.Count` counts failed items; `Errors.Count` counts errors and may be larger. Enumeration errors do not count as failed items. Cancellation tokens are forwarded to async callbacks; canceling a task-extension wait does not cancel upstream work. Pass the token to traversal as well.
+
+### Combining into one success or failure
+
 | Operation | Default failure mode |
 | --- | --- |
 | RailResult.Combine(results) / CombineAsync(tasks) | CollectAll |

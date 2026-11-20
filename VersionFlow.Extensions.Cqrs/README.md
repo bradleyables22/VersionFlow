@@ -1,6 +1,6 @@
 # VersionFlow.Extensions.Cqrs
 
-**.NET 10 · MIT**
+**.NET 10 ï¿½ MIT**
 
 Dependency-free contracts for calling synchronous and asynchronous handlers directly. No registry, mediator, scanner, or DI dependency is required. Commands and queries use the same contracts; use application names to distinguish state changes from reads.
 
@@ -130,7 +130,7 @@ For asynchronous routing, inherit `ICqrsAsyncHandler<TRequest, TResponse>` and i
 
 Do not pass a generic handler interface directly to `[Versioned]`. With attribute DI, use `[Service]` without interface bindings on versioned implementations; the generated dispatcher owns the wrapper interface. Direct calls to concrete handlers bypass routing.
 
-For multiple projects, install Core in startup and declaring projects and register every concrete version and its dependencies. See the [Core README](../VersionFlow.Core/README.md) for discovery and scope guidance.
+For multiple projects, install VersionFlow in startup and declaring projects and register every concrete version and its dependencies. See the [VersionFlow README](../VersionFlow.Core/README.md) for discovery and scope guidance.
 
 ## Migrating existing async handlers
 

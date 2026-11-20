@@ -2,13 +2,13 @@
 
 Choose versions of DI-registered .NET services and their instance methods through configuration while calling ordinary typed interfaces. Version routing requires dependency injection; static methods and direct implementation calls are not routed.
 
-Start with [VersionFlow.Core](VersionFlow.Core/README.md) for installation and a working example.
+Start with [VersionFlow](VersionFlow.Core/README.md) for installation and a working example.
 
 ## Packages
 
-| Project | Documentation |
+| Package | Documentation |
 | --- | --- |
-| [VersionFlow.Core](VersionFlow.Core/README.md) | Typed version routing, configuration, feature flags, and getting started. |
+| [VersionFlow](VersionFlow.Core/README.md) | Typed version routing, configuration, feature flags, and getting started. |
 | [VersionFlow.Extensions.DI](VersionFlow.Extensions.DI/README.md) | Attribute-based service registration. |
 | [VersionFlow.Extensions.Cqrs](VersionFlow.Extensions.Cqrs/README.md) | Direct-call CQRS handler interfaces. |
 | [VersionFlow.Extensions.Railway](VersionFLow.Extensions.Railway/README.md) | Typed results, validation, recovery, and operation chaining. |
@@ -17,7 +17,7 @@ Start with [VersionFlow.Core](VersionFlow.Core/README.md) for installation and a
 
 ## Development
 
-- [Source generator (bundled with Core)](VersionFlow.Generator/README.md)
+- [Source generator (bundled with VersionFlow)](VersionFlow.Generator/README.md)
 - [Tests](tests/VersionFlow.Tests/README.md)
 - [Referenced-assembly test fixture](tests/VersionFlow.TestServices/README.md)
 - [Package smoke application](tests/VersionFlow.PackageSmoke/README.md)

@@ -1,4 +1,4 @@
-# VersionFlow.Core
+# VersionFlow
 
 **.NET 10 · MIT**
 
@@ -16,10 +16,10 @@ Feature flags are separate: `IVersionFlow.FlagIsEnabled(...)` can be used withou
 
 ## Install
 
-Target .NET 10 or later. Install Core in the startup project and every library declaring versioned implementations. The package includes its source generator; no separate generator package is needed.
+Target .NET 10 or later. Install VersionFlow in the startup project and every library declaring versioned implementations. The package includes its source generator; no separate generator package is needed.
 
 ```sh
-dotnet add package VersionFlow.Core
+dotnet add package VersionFlow
 ```
 
 ## Quick start
@@ -225,7 +225,7 @@ Host startup validates by default. Set ValidateOnStart=false to defer VersionFlo
 
 ## Referenced projects
 
-Install Core in the startup project and declaring libraries, then rebuild them. The generator emits assembly metadata and links to referenced generated catalogs. AddVersionFlow discovers from the immediate calling assembly and follows those links, without scanning arbitrary loaded assemblies. Register the concrete implementations from every discovered library; when using attribute DI, pass those assemblies to AddAttributedServices.
+Install VersionFlow in the startup project and declaring libraries, then rebuild them. The generator emits assembly metadata and links to referenced generated catalogs. AddVersionFlow discovers from the immediate calling assembly and follows those links, without scanning arbitrary loaded assemblies. Register the concrete implementations from every discovered library; when using attribute DI, pass those assemblies to AddAttributedServices.
 
 For shared bootstrap helpers use `AddVersionFlow(configurationSection, assembly: typeof(MyHandler).Assembly)` to select a different discovery root. Use the application assembly when it combines multiple libraries.
 
@@ -252,7 +252,7 @@ Published packages include XML documentation for editor tooltips and parameter h
 
 | Symptom | Check |
 | --- | --- |
-| No generated contract or catalog is found | Install Core in the startup project and declaring libraries, rebuild, and check the discovery root when using a shared startup helper. |
+| No generated contract or catalog is found | Install VersionFlow in the startup project and declaring libraries, rebuild, and check the discovery root when using a shared startup helper. |
 | An implementation is missing | Register every version by concrete type and register its constructor dependencies. |
 | An interface registration conflicts | Let VersionFlow register the dispatcher. With attribute DI, use `[Service]` without interface bindings. |
 | Configuration is rejected | Check case-sensitive keys, short method names under `Methods`, and available version numbers. Missing versions never silently fall back. |

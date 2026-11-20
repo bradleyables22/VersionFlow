@@ -5,7 +5,7 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <IsRoslynComponent>true</IsRoslynComponent>
     <IsPackable>false</IsPackable>
-    <Description>Incremental source generator bundled in VersionFlow.Core.</Description>
+    <Description>Incremental source generator bundled in VersionFlow.</Description>
     <NoWarn>$(NoWarn);RS1036;RS2008</NoWarn>
   </PropertyGroup>
   <ItemGroup>

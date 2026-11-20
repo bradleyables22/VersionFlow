@@ -61,7 +61,7 @@ Worker and IWorker have separate scoped instances. Resolving IWorker repeatedly 
 
 Every binding uses an implementation-type registration, not a forwarding factory, so each created disposable instance has one DI owner and is disposed once. Async-only implementations require CreateAsyncScope/await using. Async disposal prefers DisposeAsync when both disposal interfaces are implemented. Manually added factories/shared objects remain subject to your own ownership choices.
 
-## With VersionFlow.Core
+## With VersionFlow
 
 Annotate versioned classes with concrete-only Service plus Versioned:
 

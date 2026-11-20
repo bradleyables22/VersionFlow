@@ -2,10 +2,10 @@
 
 **compiler component · MIT**
 
-This is a development project, not a separately published package. Its DLL is bundled in VersionFlow.Core under analyzers/dotnet/cs. Applications install only:
+This is a development project, not a separately published package. Its DLL is bundled in VersionFlow under analyzers/dotnet/cs. Applications install only:
 
 ```sh
-dotnet add package VersionFlow.Core
+dotnet add package VersionFlow
 ```
 
 ## What it generates
@@ -26,7 +26,7 @@ For independent methods, use Versioned(typeof(IContract)) on the host and Versio
 
 ## Development and multiple assemblies
 
-The generator targets .NET Standard for compiler hosting and uses Roslyn APIs. Runtime applications target .NET. Source-tree consumers reference this project as an analyzer with OutputItemType="Analyzer" and ReferenceOutputAssembly="false"; package consumers get it from Core automatically.
+The generator targets .NET Standard for compiler hosting and uses Roslyn APIs. Runtime applications target .NET. Source-tree consumers reference this project as an analyzer with OutputItemType="Analyzer" and ReferenceOutputAssembly="false"; package consumers get it from VersionFlow automatically.
 
 Each declaring assembly exposes a GeneratedCatalog under VersionFlow.Generated.Assembly_<sanitized assembly name>. Non-alphanumeric assembly-name characters become underscores. Avoid names that collide after sanitizing. Referenced generated catalogs are linked using compile-time symbols, and runtime discovery deduplicates their types. Rebuild startup and declaring projects to emit the catalog metadata. Dynamic plugins and arbitrary loaded assemblies are not scanned.
 
